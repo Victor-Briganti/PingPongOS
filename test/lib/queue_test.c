@@ -9,7 +9,7 @@
 #warning This code is developed to work in UNIX systems. It may not work as intended on other systems.
 #endif
 
-#include "queue.h"
+#include "lib/queue.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -335,7 +335,6 @@ int queue_remove_random_test() {
 int queue_invalid_insert() {
   queueint_t item0 = {.prev = NULL, .next = NULL, .index = 1};
   queueint_t item1 = {.prev = NULL, .next = NULL, .index = 1};
-  queueint_t item2 = {.prev = NULL, .next = NULL, .index = 1};
 
   queueint_t *queue0 = NULL;
   queueint_t *queue1 = NULL;
