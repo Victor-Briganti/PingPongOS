@@ -1,0 +1,29 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Cmake Debug",
+            "type": "shell",
+            "command": "cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_C_COMPILER=clang -DCMAKE_C_FLAGS='-fuse-ld=mold' .. && cmake --build . -j$(nproc)",
+            "options": {
+                "cwd": "${workspaceFolder}/build",
+            },
+            "group": {
+                "kind": "build",
+            }
+        },
+        {
+            "label": "Cmake Release",
+            "type": "shell",
+            "command": "cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_C_COMPILER=clang -DCMAKE_C_FLAGS='-fuse-ld=mold' .. && cmake --build . -j$(nproc)",
+            "options": {
+                "cwd": "${workspaceFolder}/build",
+            },
+            "group": {
+                "kind": "build",
+            }
+        },
+    ]
+}
