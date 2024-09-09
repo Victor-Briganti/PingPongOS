@@ -25,5 +25,16 @@
                 "kind": "build",
             }
         },
+        {
+            "label": "Ctest",
+            "type": "shell",
+            "command": "ctest --verbose",
+            "options": {
+                "cwd": "${workspaceFolder}/build",
+            },
+            "group": {
+                "kind": "build",
+            }
+        },
     ]
 }

@@ -2,6 +2,10 @@
 
 #include "stdio.h"
 
+//------------------------------------------------------------------------------
+// Public Functions
+//------------------------------------------------------------------------------
+
 int queue_size(queue_t *queue) {
   if (queue == NULL) {
     return 0;
@@ -34,11 +38,15 @@ void queue_print(char *name, queue_t *queue, void print_elem(void *)) {
 
 int queue_append(queue_t **queue, queue_t *elem) {
   if (queue == NULL) {
-    return QUEUE_NULL;
+    return Q_ERR_NULL;
   }
 
   if (elem == NULL) {
-    return QUEUE_ELEM_NULL;
+    return Q_ERR_ELEM_NULL;
+  }
+
+  if (elem->next != NULL && elem->prev != NULL) {
+    return Q_ERR_ELEM_DUP_LIST;
   }
 
   // The queue does not have any element
@@ -53,7 +61,7 @@ int queue_append(queue_t **queue, queue_t *elem) {
   queue_t *aux = *queue;
   while (aux != *queue) {
     if (aux == elem) {
-      return QUEUE_ELEM_REPEATED;
+      return Q_ERR_ELEM_DUP;
     }
 
     aux = aux->next;
@@ -73,4 +81,50 @@ int queue_append(queue_t **queue, queue_t *elem) {
   return 0;
 }
 
-// int queue_remove(queue_t **queue, queue_t *elem);
+int queue_remove(queue_t **queue, queue_t *elem) {
+  if (queue == NULL) {
+    return Q_ERR_NULL;
+  }
+
+  if (*queue == NULL) {
+    return Q_ERR_EMPTY;
+  }
+
+  if (elem == NULL) {
+    return Q_ERR_ELEM_NULL;
+  }
+
+  // Search through the list the elem passed
+  queue_t *aux = *queue;
+  do {
+    if (aux == elem) {
+
+      // Single element
+      if (aux->next == aux && aux->prev == aux) {
+        (*queue) = NULL;
+        aux->next = NULL;
+        aux->prev = NULL;
+        return 0;
+      }
+
+      // Remove element from the list
+      aux->next->prev = aux->prev;
+      aux->prev->next = aux->next;
+
+      // Element is the same as the head
+      if (aux == (*queue)) {
+        queue_t *temp = aux->next;
+        (*queue) = temp;
+      }
+
+      aux->next = NULL;
+      aux->prev = NULL;
+
+      return 0;
+    }
+
+    aux = aux->next;
+  } while (aux != *queue);
+
+  return Q_ERR_ELEM_NOT_FOUND;
+}

@@ -9,10 +9,12 @@
 #define NULL ((void *)0)
 #endif
 
-#define QUEUE_NULL -1
-#define QUEUE_EMPTY -2
-#define QUEUE_ELEM_NULL -3
-#define QUEUE_ELEM_REPEATED -4
+#define Q_ERR_NULL -1
+#define Q_ERR_EMPTY -2
+#define Q_ERR_ELEM_NULL -3
+#define Q_ERR_ELEM_DUP -4
+#define Q_ERR_ELEM_NOT_FOUND -5
+#define Q_ERR_ELEM_DUP_LIST -6
 
 /**
  * @brief Generic queue structure.
