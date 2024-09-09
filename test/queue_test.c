@@ -332,6 +332,141 @@ int queue_remove_random_test() {
   return 0;
 }
 
+int queue_invalid_insert() {
+  queueint_t item0 = {.prev = NULL, .next = NULL, .index = 1};
+  queueint_t item1 = {.prev = NULL, .next = NULL, .index = 1};
+  queueint_t item2 = {.prev = NULL, .next = NULL, .index = 1};
+
+  queueint_t *queue0 = NULL;
+  queueint_t *queue1 = NULL;
+
+  queue_append((queue_t **)&queue0, (queue_t *)&item0);
+  queue_append((queue_t **)&queue1, (queue_t *)&item1);
+
+  queue_remove((queue_t **)&queue0, (queue_t *)&item1);
+
+  if (queue0 != &item0) {
+    printf("Invalid removal\n");
+    return 1;
+  }
+
+  if (queue0->prev != &item0) {
+    printf("Queue0 should be the only element\n");
+    return 1;
+  }
+
+  if (queue0->next != &item0) {
+    printf("Queue0 should be the only element\n");
+    return 1;
+  }
+
+  if (queue1->prev != &item1) {
+    printf("Queue1 should be the only element\n");
+    return 1;
+  }
+
+  if (queue1->next != &item1) {
+    printf("Queue1 should be the only element\n");
+    return 1;
+  }
+
+  return 0;
+}
+
+int queue_remove_alone_insert() {
+  queueint_t item0 = {.prev = NULL, .next = NULL, .index = 1};
+  queueint_t item1 = {.prev = NULL, .next = NULL, .index = 1};
+
+  queueint_t *queue0 = NULL;
+
+  queue_append((queue_t **)&queue0, (queue_t *)&item0);
+  queue_remove((queue_t **)&queue0, (queue_t *)&item1);
+
+  if (queue0 != &item0) {
+    printf("Invalid removal\n");
+    return 1;
+  }
+
+  if (queue0->prev != &item0) {
+    printf("Queue0 should be the only element\n");
+    return 1;
+  }
+
+  if (queue0->next != &item0) {
+    printf("Queue0 should be the only element\n");
+    return 1;
+  }
+
+  if (item1.prev != NULL) {
+    printf("Queue1 should be the only element\n");
+    return 1;
+  }
+
+  if (item1.next != NULL) {
+    printf("Queue1 should be the only element\n");
+    return 1;
+  }
+
+  return 0;
+}
+
+int queue_insert_dup() {
+  queueint_t item0 = {.prev = NULL, .next = NULL, .index = 1};
+  queueint_t *queue0 = NULL;
+  queue_append((queue_t **)&queue0, (queue_t *)&item0);
+
+  if (queue_append((queue_t **)&queue0, (queue_t *)&item0) !=
+      Q_ERR_ELEM_DUP_LIST) {
+    printf("Invalid insertion of duplicated elements\n");
+    return 1;
+  }
+
+  return 0;
+}
+
+int queue_insert_double_queue() {
+  queueint_t item0 = {.prev = NULL, .next = NULL, .index = 1};
+  queueint_t item1 = {.prev = NULL, .next = NULL, .index = 1};
+
+  queueint_t *queue0 = NULL;
+  queueint_t *queue1 = NULL;
+
+  queue_append((queue_t **)&queue0, (queue_t *)&item0);
+  queue_append((queue_t **)&queue1, (queue_t *)&item1);
+
+  if (queue0 != &item0) {
+    printf("Invalid insert in queue\n");
+    return 1;
+  }
+
+  if (queue0->prev != &item0) {
+    printf("Queue0 should be the only element\n");
+    return 1;
+  }
+
+  if (queue0->next != &item0) {
+    printf("Queue0 should be the only element\n");
+    return 1;
+  }
+
+  if (queue1 != &item1) {
+    printf("Invalid insert in queue\n");
+    return 1;
+  }
+
+  if (queue1->prev != &item1) {
+    printf("Queue1 should be the only element\n");
+    return 1;
+  }
+
+  if (queue1->next != &item1) {
+    printf("Queue1 should be the only element\n");
+    return 1;
+  }
+
+  return 0;
+}
+
 //------------------------------------------------------------------------------
 // Main Functions
 //------------------------------------------------------------------------------
@@ -364,6 +499,26 @@ int main() {
 
   if (queue_remove_random_test()) {
     printf("TEST FAILED: queue_remove_random_test\n");
+    return 1;
+  }
+
+  if (queue_invalid_insert()) {
+    printf("TEST FAILED: queue_invalid_insert\n");
+    return 1;
+  }
+
+  if (queue_remove_alone_insert()) {
+    printf("TEST FAILED: queue_remove_alone_insert\n");
+    return 1;
+  }
+
+  if (queue_insert_dup()) {
+    printf("TEST FAILED: queue_insert_dup\n");
+    return 1;
+  }
+
+  if (queue_insert_double_queue()) {
+    printf("TEST FAILED: queue_insert_double_queue\n");
     return 1;
   }
 

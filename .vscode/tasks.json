@@ -36,5 +36,16 @@
                 "kind": "build",
             }
         },
+        {
+            "label": "Ctest MemCheck",
+            "type": "shell",
+            "command": "ctest -T memcheck",
+            "options": {
+                "cwd": "${workspaceFolder}/build",
+            },
+            "group": {
+                "kind": "build",
+            }
+        },
     ]
 }
