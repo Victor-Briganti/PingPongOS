@@ -15,6 +15,20 @@ else ()
     message(STATUS "Ccache not found")
 endif ()
 
-# Compilation
-add_executable(${PROJECT_NAME} src/main.c)
-target_include_directories(${PROJECT_NAME} PUBLIC include)
+# Define the queue library
+add_library(QueueLib STATIC src/queue.c)
+target_include_directories(QueueLib PUBLIC include)
+
+# Define the test executable
+add_executable(QueueTest test/queue_test.c)
+target_include_directories(QueueTest PUBLIC include)
+
+# Link the queue library to the test executable
+target_link_libraries(QueueTest PRIVATE QueueLib)
+
+# Enable testing
+include(CTest)
+enable_testing()
+
+# Add the test
+add_test(NAME QueueTests COMMAND QueueTest)

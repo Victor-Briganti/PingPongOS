@@ -34,13 +34,13 @@ BraceWrapping:
   SplitEmptyRecord: true
 BreakAfterJavaFieldAnnotations: true
 BreakBeforeBinaryOperators: NonAssignment
-BreakBeforeBraces: Custom
+BreakBeforeBraces: true
 BreakBeforeInheritanceComma: true
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeColon
 BreakConstructorInitializersBeforeComma: false
 BreakStringLiterals: true
-ColumnLimit: 120
+ColumnLimit: 80
 CommentPragmas: "^ IWYU pragma:"
 CompactNamespaces: false
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
@@ -69,7 +69,7 @@ IndentWrappedFunctionNames: true
 JavaScriptQuotes: Leave
 JavaScriptWrapImports: true
 KeepEmptyLinesAtTheStartOfBlocks: true
-Language: Cpp
+Language: C
 MacroBlockBegin: ""
 MacroBlockEnd: ""
 MaxEmptyLinesToKeep: 2
