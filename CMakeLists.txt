@@ -30,24 +30,34 @@ endif ()
 add_library(QueueLib STATIC src/lib/queue.c)
 target_include_directories(QueueLib PUBLIC include)
 
+# Define the log library
+add_library(LogLib STATIC src/debug/log.c)
+target_include_directories(LogLib PUBLIC include)
+
 # Define the test executable for the queue
 add_executable(QueueTest test/lib/queue_test.c)
 target_include_directories(QueueTest PUBLIC include)
-
 # Link the queue library with the test executable
 target_link_libraries(QueueTest PRIVATE QueueLib)
 
 # Define the ppos library
 add_library(PingPongLib STATIC src/ppos.c)
 target_include_directories(PingPongLib PUBLIC include)
-target_link_libraries(PingPongLib PUBLIC QueueLib)
+# Link the queue library with the PingPongLib
+target_link_libraries(PingPongLib PUBLIC QueueLib LogLib)
 
 # Define the test executable for the task
 add_executable(TaskTest test/pptask_test.c)
 target_include_directories(TaskTest PUBLIC include)
-
+# Link the PingPongOs with the task test executable
 target_link_libraries(TaskTest PRIVATE PingPongLib)
+
+# Define the test executable for the task
+add_executable(TaskMaxTest test/pptask_max_test.c)
+target_include_directories(TaskMaxTest PUBLIC include)
+# Link the PingPongOs with the task test executable
+target_link_libraries(TaskMaxTest PRIVATE PingPongLib)
 
 # Add the test
 add_test(NAME QueueTests COMMAND QueueTest)
-add_test(NAME TaskTests COMMAND TaskTest)
+add_test(NAME TaskTests COMMAND TaskTest TaskMaxTest)
