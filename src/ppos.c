@@ -22,6 +22,35 @@ static task_t *taskQueue = NULL;
 static task_t *currentTask = NULL;
 static int tid = 0;
 
+/**
+ * @brief Closes all the resources opened by the OS
+ *
+ * Terminates all the tasks that might be opened, and free its structures.
+ */
+void ppos_terminate() {
+  log_debug("Terminating the program\n");
+  log_debug("Cleaning Resources\n");
+
+  // This step is similar to a Garbage Collection.
+  task_t *aux = taskQueue;
+  while (taskQueue) {
+    log_debug("Finishing task %d\n", aux->tid);
+    task_t *temp = aux;
+    aux = aux->next;
+
+    log_debug("Removing\n");
+    if (queue_remove((queue_t **)&taskQueue, (queue_t *)temp) < 0) {
+      log_debug("Could not remove task from the queue\n");
+    }
+
+    if (temp->stack != NULL) {
+      log_debug("Freeing stack from task %d\n", temp->tid);
+      free(temp->stack);
+      temp->stack = NULL;
+    }
+  }
+}
+
 //=============================================================================
 // General Functions
 //=============================================================================
@@ -55,6 +84,8 @@ void ppos_init() {
     log_debug("Could not append task to the queue\n");
     free(currentTask);
   }
+
+  atexit(ppos_terminate);
 }
 
 //=============================================================================
@@ -137,12 +168,13 @@ void task_exit(int exit_code) {
       aux = aux->next;
 
       log_debug("Removing \n");
-      if (queue_remove((queue_t **)taskQueue, (queue_t *)temp) < 0) {
+      if (queue_remove((queue_t **)&taskQueue, (queue_t *)temp) < 0) {
         log_debug("Could not remove finished task from the queue\n");
         break;
       }
 
       free(temp->stack);
+      temp->stack = NULL;
     } else {
       aux = aux->next;
     }
@@ -151,16 +183,18 @@ void task_exit(int exit_code) {
 
   log_debug("Removing the current task from the queue\n");
 
-  if (queue_remove((queue_t **)taskQueue, (queue_t *)currentTask) < 0) {
+  if (queue_remove((queue_t **)&taskQueue, (queue_t *)currentTask) < 0) {
     log_debug("Could not exit the current task\n");
     return;
   }
 
-  currentTask->status = TASK_FINISH;
-  currentTask = taskQueue;
-  currentTask->status = TASK_EXEC;
+  if (taskQueue != NULL) {
+    currentTask->status = TASK_FINISH;
+    currentTask = taskQueue;
+    currentTask->status = TASK_EXEC;
 
-  setcontext(&(currentTask->context));
+    setcontext(&(currentTask->context));
+  }
 }
 
 int task_id() {

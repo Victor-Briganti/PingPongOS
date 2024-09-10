@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10..3.28)
 project(PingPongOS VERSION 0.0.1 LANGUAGES C)
 
 # Compiler flags
-# set(CMAKE_C_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-sign-conversion -Wconversion")
+#set(CMAKE_C_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-sign-conversion -Wconversion")
 set(CMAKE_C_FLAGS "-DDEBUG -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-sign-conversion -Wconversion")
 
 # Enable testing
@@ -46,18 +46,24 @@ target_include_directories(PingPongLib PUBLIC include)
 # Link the queue library with the PingPongLib
 target_link_libraries(PingPongLib PUBLIC QueueLib LogLib)
 
-# Define the test executable for the task
+# Define the test executable for the task(simple)
 add_executable(TaskTest test/pptask_test.c)
 target_include_directories(TaskTest PUBLIC include)
 # Link the PingPongOs with the task test executable
 target_link_libraries(TaskTest PRIVATE PingPongLib)
 
-# Define the test executable for the task
+# Define the test executable for the task(max)
 add_executable(TaskMaxTest test/pptask_max_test.c)
 target_include_directories(TaskMaxTest PUBLIC include)
 # Link the PingPongOs with the task test executable
 target_link_libraries(TaskMaxTest PRIVATE PingPongLib)
 
+# Define the test executable for the task(max sequential)
+add_executable(TaskMaxSeqTest test/pptask_max_seq_test.c)
+target_include_directories(TaskMaxSeqTest PUBLIC include)
+# Link the PingPongOs with the task test executable
+target_link_libraries(TaskMaxSeqTest PRIVATE PingPongLib)
+
 # Add the test
 add_test(NAME QueueTests COMMAND QueueTest)
-add_test(NAME TaskTests COMMAND TaskTest TaskMaxTest)
+add_test(NAME TaskTests COMMAND TaskTest TaskMaxTest TaskMaxSeqTest)
