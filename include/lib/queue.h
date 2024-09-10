@@ -1,6 +1,12 @@
-// PingPongOS - PingPong Operating System
-// Prof. Carlos A. Maziero, DINF UFPR
-// Version 1.4 -- Jan. 2022
+/*
+ * PingPongOS - PingPong Operating System
+ * Filename: queue.h
+ * Description: Generic queue library to be used with the OS
+ *
+ * Author: Victor Briganti
+ * Date: 2024-09-09
+ * License: BSD 2
+ */
 
 #ifndef __QUEUE__
 #define __QUEUE__

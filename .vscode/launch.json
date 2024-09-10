@@ -7,8 +7,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug",
+            "name": "Debug Queue",
             "program": "${workspaceFolder}/build/QueueTest",
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug Task",
+            "program": "${workspaceFolder}/build/TaskTest",
             "args": [],
             "cwd": "${workspaceFolder}"
         }
