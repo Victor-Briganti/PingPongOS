@@ -19,10 +19,67 @@
 
 // Reserved IDs for special Tasks
 #define MAIN_TASK 0
+#define DISPATCHER_TASK 1
 
 static TaskManager *readyQueue = NULL;
 static task_t *executingTask = NULL;
+static task_t *dispatcherTask = NULL;
 static int threadCount = 0;
+
+//=============================================================================
+// Scheduler Private Functions
+//=============================================================================
+
+static task_t *scheduler() {
+  if (readyQueue->count) {
+    return readyQueue->taskQueue;
+  }
+
+  return NULL;
+}
+
+static void dispatcher() {
+  if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
+    log_error("%s could not be removed from ready queue", __func__);
+    exit(-1);
+  }
+
+  while (readyQueue->count) {
+    executingTask = dispatcherTask;
+    task_t *next = scheduler();
+
+    switch (next->status) {
+    case TASK_FINISH:
+      free(next->stack);
+      if (next->tid == MAIN_TASK) {
+        free(next);
+      }
+      break;
+    case TASK_READY:
+    case TASK_EXEC:
+      if (next == NULL) {
+        log_error("%s could not get next task", __func__);
+        exit(-1);
+      }
+
+      if (task_switch(next) < 0) {
+        log_error("%s could not execute task(%d)", __func__, next->tid);
+        exit(-1);
+      }
+      break;
+    default:
+      log_debug("%s invalid task(%d) status %d", next->tid, next->status);
+      exit(-1);
+    }
+
+    if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
+      log_error("%s could not be removed from ready queue", __func__);
+      exit(-1);
+    }
+  }
+
+  exit(0);
+}
 
 //=============================================================================
 // General Functions
@@ -50,6 +107,17 @@ void ppos_init() {
 
   if (task_init(executingTask, NULL, NULL) < 0) {
     log_error("%s main task could not be initialized", __func__);
+    exit(-1);
+  }
+
+  dispatcherTask = malloc(sizeof(task_t));
+  if (dispatcherTask == NULL) {
+    log_error("%s failed to allocate dispatcher task", __func__);
+    exit(-1);
+  }
+
+  if (task_init(dispatcherTask, dispatcher, NULL) < 0) {
+    log_error("%s dispatcher task could not be initialized", __func__);
     exit(-1);
   }
 }
@@ -138,24 +206,9 @@ int task_switch(task_t *task) {
 }
 
 void task_exit(int exit_code) {
-  log_debug("%s %d", __func__, executingTask->tid);
-
-  if (readyQueue->count) {
-    executingTask->status = TASK_FINISH;
-
-    task_t *aux = readyQueue->taskQueue;
-    log_debug("%s executing task(%d)", __func__, aux->tid);
-    task_manager_print(readyQueue);
-    if (task_manager_remove(readyQueue, aux) < 0) {
-      log_error("%s could not get next executing task(%d)", __func__, aux->tid);
-      return;
-    }
-    task_manager_print(readyQueue);
-
-    aux->status = TASK_EXEC;
-    executingTask = aux;
-    setcontext(&(executingTask->context));
-  }
+  log_debug("%s task(%d)", __func__, executingTask->tid);
+  executingTask->status = TASK_FINISH;
+  swapcontext(&(executingTask->context), &(dispatcherTask->context));
 }
 
 int task_id() {
