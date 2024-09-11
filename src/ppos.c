@@ -11,6 +11,7 @@
 #include "ppos.h"
 #include "adt/pptask_manager.h"
 #include "debug/log.h"
+#include "ppos_data.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,32 +45,34 @@ static void dispatcher() {
     exit(-1);
   }
 
+  if (executingTask->status == TASK_FINISH) {
+    log_info("%s executing task(%d) TASK_FINISH", __func__, executingTask->tid);
+    free(executingTask->stack);
+    if (executingTask->tid == MAIN_TASK) {
+      free(executingTask);
+    }
+  }
+
   while (readyQueue->count) {
     executingTask = dispatcherTask;
     task_t *next = scheduler();
-
-    switch (next->status) {
-    case TASK_FINISH:
-      free(next->stack);
-      if (next->tid == MAIN_TASK) {
-        free(next);
-      }
-      break;
-    case TASK_READY:
-    case TASK_EXEC:
-      if (next == NULL) {
-        log_error("%s could not get next task", __func__);
-        exit(-1);
-      }
-
-      if (task_switch(next) < 0) {
-        log_error("%s could not execute task(%d)", __func__, next->tid);
-        exit(-1);
-      }
-      break;
-    default:
-      log_debug("%s invalid task(%d) status %d", next->tid, next->status);
+    if (next == NULL) {
+      log_error("%s next task(nil)");
       exit(-1);
+    }
+
+    if (task_switch(next) < 0) {
+      log_error("%s could not execute task(%d)", __func__, next->tid);
+      exit(-1);
+    }
+
+    if (executingTask->status == TASK_FINISH) {
+      log_info("%s executing task(%d) TASK_FINISH", __func__,
+               executingTask->tid);
+      free(executingTask->stack);
+      if (executingTask->tid == MAIN_TASK) {
+        free(executingTask);
+      }
     }
 
     if (task_manager_remove(readyQueue, dispatcherTask) < 0) {

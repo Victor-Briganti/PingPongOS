@@ -6,7 +6,6 @@
 
 #include "ppos.h"
 #include <stdio.h>
-#include <stdlib.h>
 
 task_t Ping, Pong;
 
