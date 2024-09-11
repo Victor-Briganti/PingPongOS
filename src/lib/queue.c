@@ -23,17 +23,19 @@ int queue_size(queue_t *queue) {
 }
 
 void queue_print(char *name, queue_t *queue, void print_elem(void *)) {
-  printf("%s:", name);
+  (void)fprintf(stderr, "%s:", name);
 
   if (queue == NULL) {
+    (void)fprintf(stderr, "\n");
     return;
   }
 
   queue_t *aux = queue;
-  while (aux != queue) {
+  do {
     print_elem(aux);
     aux = aux->next;
-  }
+  } while (aux != queue);
+  (void)fprintf(stderr, "\n");
 }
 
 int queue_append(queue_t **queue, queue_t *elem) {

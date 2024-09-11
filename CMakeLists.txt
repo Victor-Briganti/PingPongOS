@@ -34,6 +34,12 @@ target_include_directories(QueueLib PUBLIC include)
 add_library(LogLib STATIC src/debug/log.c)
 target_include_directories(LogLib PUBLIC include)
 
+# Define the ADT Task library
+add_library(TaskADT STATIC src/adt/pptask_manager.c)
+target_include_directories(TaskADT PUBLIC include)
+# Link the queue library with the ADT Task
+target_link_libraries(TaskADT PRIVATE QueueLib)
+
 # Define the test executable for the queue
 add_executable(QueueTest test/lib/queue_test.c)
 target_include_directories(QueueTest PUBLIC include)
@@ -44,7 +50,7 @@ target_link_libraries(QueueTest PRIVATE QueueLib)
 add_library(PingPongLib STATIC src/ppos.c)
 target_include_directories(PingPongLib PUBLIC include)
 # Link the queue library with the PingPongLib
-target_link_libraries(PingPongLib PUBLIC QueueLib LogLib)
+target_link_libraries(PingPongLib PUBLIC QueueLib LogLib TaskADT)
 
 # Define the test executable for the task(simple)
 add_executable(TaskTest test/tasks/pptask_test.c)

@@ -11,7 +11,7 @@
             "program": "${workspaceFolder}/build/QueueTest",
             "args": [],
             "cwd": "${workspaceFolder}"
-        }
+        },
         {
             "type": "lldb",
             "request": "launch",

@@ -9,30 +9,17 @@
  */
 
 #include "ppos.h"
+#include "adt/pptask_manager.h"
 #include "debug/log.h"
-#include "lib/queue.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ucontext.h>
 #include <ucontext.h>
 
-static task_t *taskQueue = NULL;
+static TaskManager *readyQueue = NULL;
 static task_t *currentTask = NULL;
 static int threadCount = 0;
-
-//=============================================================================
-// Debugging Functions
-//=============================================================================
-
-void qtask_print(void *ptr) {
-  task_t *task = (task_t *)ptr;
-  if (!task) {
-    return;
-  }
-
-  printf("%d ", task->tid);
-}
 
 //=============================================================================
 // General Functions
@@ -43,15 +30,19 @@ void ppos_init() {
   // https://en.cppreference.com/w/c/io/setvbuf
   setvbuf(stdout, 0, _IONBF, 0);
 
-#ifdef DEBUG
   log_set(stderr, 1, LOG_TRACE);
-#endif
+
+  readyQueue = task_manager_create();
+  if (readyQueue == NULL) {
+    log_error("%s couldn't initiate the ready queue", __func__);
+    exit(-1);
+  }
 
   log_debug("%s creating main task", __func__);
   currentTask = malloc(sizeof(task_t));
   if (currentTask == NULL) {
     log_error("%s failed to allocate main task", __func__);
-    return;
+    exit(-1);
   }
 
   currentTask->next = NULL;
@@ -63,9 +54,9 @@ void ppos_init() {
   getcontext(&(currentTask->context));
   threadCount++;
 
-  if (queue_append((queue_t **)&taskQueue, (queue_t *)currentTask) < 0) {
+  if (task_manager_insert(readyQueue, currentTask) < 0) {
     log_debug("%s could not append task to the queue", __func__);
-    free(currentTask);
+    exit(-1);
   }
 }
 
@@ -102,8 +93,8 @@ int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
 
   makecontext(&(task->context), (void *)start_routine, 1, arg);
 
-  if (queue_append((queue_t **)&taskQueue, (queue_t *)task) < 0) {
-    log_debug("%s task(%d) could not be appended in the queue", __func__,
+  if (task_manager_insert(readyQueue, task) < 0) {
+    log_debug("%s task(%d) could not be appended in the ready queue", __func__,
               task->tid);
     return -1;
   }
@@ -120,7 +111,7 @@ int task_switch(task_t *task) {
   }
 
   // Search the task in the queue
-  task_t *aux = taskQueue;
+  const task_t *aux = readyQueue->taskQueue;
   do {
     if (aux->tid == task->tid) {
       currentTask->status = TASK_READY;
@@ -136,47 +127,26 @@ int task_switch(task_t *task) {
     }
 
     aux = aux->next;
-  } while (aux != taskQueue);
+  } while (aux != readyQueue->taskQueue);
 
   log_debug("%s task(%d) not found in the queue", __func__, task->tid);
   return -1;
 }
 
 void task_exit(int exit_code) {
-  // Search for finished tasks in queue.
-  // This step is similar to a Garbage Collection.
-  task_t *aux = taskQueue;
-  do {
-    if (aux->status == TASK_FINISH) {
-      task_t *temp = aux;
-      aux = aux->next;
-
-      log_debug("%s %d", __func__, temp->tid);
-      if (queue_remove((queue_t **)&taskQueue, (queue_t *)temp) < 0) {
-        log_debug("%s could not remove task(%d) from queue", __func__,
-                  temp->tid);
-        break;
-      }
-
-      free(temp->stack);
-      temp->stack = NULL;
-    } else {
-      aux = aux->next;
-    }
-
-  } while (aux != taskQueue);
-
   log_debug("%s removing task(%d) from queue", __func__, currentTask->tid);
-  if (queue_remove((queue_t **)&taskQueue, (queue_t *)currentTask) < 0) {
+  if (task_manager_remove(readyQueue, currentTask) < 0) {
     log_error("%s could not remove the task(%d) from queue", __func__,
               currentTask->tid);
     return;
   }
 
-  if (taskQueue != NULL) {
+  if (readyQueue->count) {
     currentTask->status = TASK_FINISH;
-    currentTask = taskQueue;
+    currentTask = readyQueue->taskQueue;
     currentTask->status = TASK_EXEC;
+
+    task_manager_print(readyQueue);
 
     setcontext(&(currentTask->context));
   }
