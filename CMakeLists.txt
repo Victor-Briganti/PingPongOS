@@ -47,19 +47,19 @@ target_include_directories(PingPongLib PUBLIC include)
 target_link_libraries(PingPongLib PUBLIC QueueLib LogLib)
 
 # Define the test executable for the task(simple)
-add_executable(TaskTest test/pptask_test.c)
+add_executable(TaskTest test/tasks/pptask_test.c)
 target_include_directories(TaskTest PUBLIC include)
 # Link the PingPongOs with the task test executable
 target_link_libraries(TaskTest PRIVATE PingPongLib)
 
 # Define the test executable for the task(max)
-add_executable(TaskMaxTest test/pptask_max_test.c)
+add_executable(TaskMaxTest test/tasks/pptask_max_test.c)
 target_include_directories(TaskMaxTest PUBLIC include)
 # Link the PingPongOs with the task test executable
 target_link_libraries(TaskMaxTest PRIVATE PingPongLib)
 
 # Define the test executable for the task(max sequential)
-add_executable(TaskMaxSeqTest test/pptask_max_seq_test.c)
+add_executable(TaskMaxSeqTest test/tasks/pptask_max_seq_test.c)
 target_include_directories(TaskMaxSeqTest PUBLIC include)
 # Link the PingPongOs with the task test executable
 target_link_libraries(TaskMaxSeqTest PRIVATE PingPongLib)

@@ -1,3 +1,13 @@
+/*
+ * PingPongOS - PingPong Operating System
+ * Filename: log.c
+ * Description: Logging library for debugging the system
+ *
+ * Author: Victor Briganti
+ * Date: 2024-09-09
+ * License: BSD 2
+ */
+
 #include "debug/log.h"
 
 #include <assert.h>
@@ -22,14 +32,6 @@ const char *level_string[] = {"TRACE", "DEBUG", "INFO",
                               "WARN",  "ERROR", "FATAL"};
 
 const char *level_color[] = {BLUE, MAGENTA, GREEN, YELLOW, RED, BLACK};
-
-static void print_time() {
-  time_t now = time(NULL);
-  struct tm *local_time = localtime(&now);
-  char time_str[100];
-  (void)strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", local_time);
-  (void)fprintf(output, "%s ", time_str);
-}
 
 static void print_level(int level) {
   if (color == LOG_COLOR_ENABLE) {
@@ -91,7 +93,6 @@ static void print_level(int level) {
 
 static void logger(int log_level, const char *file, int line, const char *fmt,
                    va_list args) {
-  print_time();
   print_level(log_level);
   (void)fprintf(output, "%s:%d ", file, line);
 

@@ -8,7 +8,7 @@
  * License: BSD 2
  */
 
-#include "data/pptask.h"
+#include "ppos_data.h"
 
 // Enables the POSIX compatibility on MacOS X
 #define _XOPEN_SOURCE 600

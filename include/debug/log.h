@@ -1,3 +1,13 @@
+/*
+ * PingPongOS - PingPong Operating System
+ * Filename: log.h
+ * Description: Logging library for debugging the system
+ *
+ * Author: Victor Briganti
+ * Date: 2024-09-09
+ * License: BSD 2
+ */
+
 #ifndef PP_LOG_H
 #define PP_LOG_H
 
@@ -38,14 +48,6 @@ void __logger(int log_level, const char *file, int line, const char *fmt, ...);
 #define log_warn(...) __logger(LOG_WARN, __FILE__, __LINE__, __VA_ARGS__)
 #define log_error(...) __logger(LOG_ERROR, __FILE__, __LINE__, __VA_ARGS__)
 #define log_fatal(...) __logger(LOG_FATAL, __FILE__, __LINE__, __VA_ARGS__)
-#else
-#define log_trace(...)
-#define log_debug(...)
-#define log_info(...)
-#define log_warn(...)
-#define log_error(...)
-#define log_fatal(...)
-#endif
 
 /**
  * @brief Configures the logging system.
@@ -65,5 +67,15 @@ void __logger(int log_level, const char *file, int line, const char *fmt, ...);
  *                  level is not enabled the LOG_DEBUG is going to be used
  */
 void log_set(FILE *file, int enable_color, int log_level);
+
+#else
+#define log_set(...) ;
+#define log_trace(...)
+#define log_debug(...)
+#define log_info(...)
+#define log_warn(...)
+#define log_error(...)
+#define log_fatal(...)
+#endif
 
 #endif // PP_LOG_H

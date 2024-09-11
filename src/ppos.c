@@ -9,7 +9,6 @@
  */
 
 #include "ppos.h"
-#include "data/pptask.h"
 #include "debug/log.h"
 #include "lib/queue.h"
 
@@ -20,35 +19,19 @@
 
 static task_t *taskQueue = NULL;
 static task_t *currentTask = NULL;
-static int tid = 0;
+static int threadCount = 0;
 
-/**
- * @brief Closes all the resources opened by the OS
- *
- * Terminates all the tasks that might be opened, and free its structures.
- */
-void ppos_terminate() {
-  log_debug("Terminating the program\n");
-  log_debug("Cleaning Resources\n");
+//=============================================================================
+// Debugging Functions
+//=============================================================================
 
-  // This step is similar to a Garbage Collection.
-  task_t *aux = taskQueue;
-  while (taskQueue) {
-    log_debug("Finishing task %d\n", aux->tid);
-    task_t *temp = aux;
-    aux = aux->next;
-
-    log_debug("Removing\n");
-    if (queue_remove((queue_t **)&taskQueue, (queue_t *)temp) < 0) {
-      log_debug("Could not remove task from the queue\n");
-    }
-
-    if (temp->stack != NULL) {
-      log_debug("Freeing stack from task %d\n", temp->tid);
-      free(temp->stack);
-      temp->stack = NULL;
-    }
+void qtask_print(void *ptr) {
+  task_t *task = (task_t *)ptr;
+  if (!task) {
+    return;
   }
+
+  printf("%d ", task->tid);
 }
 
 //=============================================================================
@@ -64,28 +47,26 @@ void ppos_init() {
   log_set(stderr, 1, LOG_TRACE);
 #endif
 
-  log_debug("Creating main task\n");
+  log_debug("%s creating main task", __func__);
   currentTask = malloc(sizeof(task_t));
   if (currentTask == NULL) {
-    log_debug("Failed to allocated the main task\n");
+    log_error("%s failed to allocate main task", __func__);
     return;
   }
 
   currentTask->next = NULL;
   currentTask->prev = NULL;
-  currentTask->tid = tid;
+  currentTask->tid = threadCount;
   currentTask->status = TASK_EXEC;
   currentTask->stack =
       NULL; // The main task does not need to allocate the stack
   getcontext(&(currentTask->context));
-  tid++;
+  threadCount++;
 
   if (queue_append((queue_t **)&taskQueue, (queue_t *)currentTask) < 0) {
-    log_debug("Could not append task to the queue\n");
+    log_debug("%s could not append task to the queue", __func__);
     free(currentTask);
   }
-
-  atexit(ppos_terminate);
 }
 
 //=============================================================================
@@ -93,15 +74,18 @@ void ppos_init() {
 //=============================================================================
 
 int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
-  if (task == NULL || start_routine == NULL) {
-    log_debug(
-        "NULL task or routine are not accepted in the initialization of a "
-        "task\n");
+  if (task == NULL) {
+    log_error("%s received a task == NULL", __func__);
+    return -1;
+  }
+
+  if (start_routine == NULL) {
+    log_error("%s received a start_routine == NULL", __func__);
     return -1;
   }
 
   task->status = TASK_READY;
-  task->tid = tid;
+  task->tid = threadCount;
 
   // Initialize the context structure and its stack
   getcontext(&(task->context));
@@ -112,25 +96,26 @@ int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
     task->context.uc_stack.ss_flags = 0;
     task->context.uc_link = 0;
   } else {
-    log_debug("Stack could not be allocated\n");
+    log_error("%s stack could not be allocated", __func__);
     return -1;
   }
 
   makecontext(&(task->context), (void *)start_routine, 1, arg);
 
   if (queue_append((queue_t **)&taskQueue, (queue_t *)task) < 0) {
-    log_debug("The task could not be appended in the queue\n");
+    log_debug("%s task(%d) could not be appended in the queue", __func__,
+              task->tid);
     return -1;
   }
 
-  tid++;
+  threadCount++;
 
   return 0;
 }
 
 int task_switch(task_t *task) {
   if (task == NULL) {
-    log_debug("Invalid task switch, NULL structure passed\n");
+    log_debug("%s received task == NULL", __func__);
     return -1;
   }
 
@@ -138,11 +123,11 @@ int task_switch(task_t *task) {
   task_t *aux = taskQueue;
   do {
     if (aux->tid == task->tid) {
-      log_debug("Found task on the queue\n");
       currentTask->status = TASK_READY;
       task->status = TASK_EXEC;
 
-      log_debug("Swapping context between passed task and current task\n");
+      log_debug("%s swapping task(%d) -> task(%d)", __func__, currentTask->tid,
+                task->tid);
       task_t *temp = currentTask;
       currentTask = task;
       swapcontext(&(temp->context), &(currentTask->context));
@@ -153,7 +138,7 @@ int task_switch(task_t *task) {
     aux = aux->next;
   } while (aux != taskQueue);
 
-  log_debug("Task not found on the queue\n");
+  log_debug("%s task(%d) not found in the queue", __func__, task->tid);
   return -1;
 }
 
@@ -163,13 +148,13 @@ void task_exit(int exit_code) {
   task_t *aux = taskQueue;
   do {
     if (aux->status == TASK_FINISH) {
-      log_debug("Found finished task\n");
       task_t *temp = aux;
       aux = aux->next;
 
-      log_debug("Removing \n");
+      log_debug("%s %d", __func__, temp->tid);
       if (queue_remove((queue_t **)&taskQueue, (queue_t *)temp) < 0) {
-        log_debug("Could not remove finished task from the queue\n");
+        log_debug("%s could not remove task(%d) from queue", __func__,
+                  temp->tid);
         break;
       }
 
@@ -181,10 +166,10 @@ void task_exit(int exit_code) {
 
   } while (aux != taskQueue);
 
-  log_debug("Removing the current task from the queue\n");
-
+  log_debug("%s removing task(%d) from queue", __func__, currentTask->tid);
   if (queue_remove((queue_t **)&taskQueue, (queue_t *)currentTask) < 0) {
-    log_debug("Could not exit the current task\n");
+    log_error("%s could not remove the task(%d) from queue", __func__,
+              currentTask->tid);
     return;
   }
 
@@ -198,6 +183,6 @@ void task_exit(int exit_code) {
 }
 
 int task_id() {
-  log_debug("Getting current task id\n");
+  log_debug("%s %d", __func__, currentTask->tid);
   return currentTask->tid;
 }
