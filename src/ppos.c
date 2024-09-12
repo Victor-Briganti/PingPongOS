@@ -73,6 +73,16 @@ static void dispatcher() {
       if (executingTask->tid == MAIN_TASK) {
         free(executingTask);
       }
+    } else if (executingTask->status == TASK_READY) {
+      log_debug("%s inserting executing task(%d) in ready queue", __func__,
+                executingTask->tid);
+      task_manager_print(readyQueue);
+      if (task_manager_insert(readyQueue, executingTask) < 0) {
+        log_error("%s failed to insert executing task(%d) in ready queue",
+                  __func__, executingTask->tid);
+        exit(-1);
+      }
+      task_manager_print(readyQueue);
     }
 
     if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
@@ -93,7 +103,7 @@ void ppos_init() {
   // https://en.cppreference.com/w/c/io/setvbuf
   (void)setvbuf(stdout, 0, _IONBF, 0);
 
-  log_set(stderr, 1, LOG_TRACE);
+  log_set(stderr, 0, LOG_TRACE);
 
   readyQueue = task_manager_create();
   if (readyQueue == NULL) {
@@ -217,4 +227,10 @@ void task_exit(int exit_code) {
 int task_id() {
   log_debug("%s %d", __func__, executingTask->tid);
   return executingTask->tid;
+}
+
+void task_yield() {
+  log_debug("%s task(%d)", __func__, executingTask->tid);
+  executingTask->status = TASK_READY;
+  swapcontext(&(executingTask->context), &(dispatcherTask->context));
 }

@@ -73,3 +73,11 @@ void task_exit(int exit_code);
  * @return The id of the task. 0 if is the main.
  */
 int task_id();
+
+/**
+ * @brief Yields the current task.
+ *
+ * Passes control of the CPU back to the scheduler, allowing it to select and
+ * execute another task or thread.
+ */
+void task_yield();
