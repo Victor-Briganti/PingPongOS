@@ -28,10 +28,10 @@ static int level = LOG_DEBUG;
 #define MAGENTA "\033[35m"
 #define BLACK "\033[1;30m"
 
-const char *level_string[] = {"TRACE", "DEBUG", "INFO",
-                              "WARN",  "ERROR", "FATAL"};
+const char *const level_string[] = {"TRACE", "DEBUG", "INFO",
+                                    "WARN",  "ERROR", "FATAL"};
 
-const char *level_color[] = {BLUE, MAGENTA, GREEN, YELLOW, RED, BLACK};
+const char *const level_color[] = {BLUE, MAGENTA, GREEN, YELLOW, RED, BLACK};
 
 static void print_level(int level) {
   if (color == LOG_COLOR_ENABLE) {

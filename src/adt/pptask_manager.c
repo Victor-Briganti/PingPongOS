@@ -24,6 +24,8 @@
 
 #include <stdlib.h>
 
+#define PRIORITY_AGE -1
+
 //=============================================================================
 // Private Functions
 //=============================================================================
@@ -44,6 +46,13 @@ static void qtask_print(void *ptr) {
   (void)fprintf(stderr, "%d ", task->tid);
 }
 #endif // DEBUG
+
+static int qcompare(const void *ptr1, const void *ptr2) {
+  task_t *elem = (task_t *)ptr1;
+  task_t *queue = (task_t *)ptr2;
+
+  return queue->current_priority - elem->initial_priority;
+}
 
 //=============================================================================
 // Public Functions
@@ -69,7 +78,8 @@ int task_manager_insert(TaskManager *manager, task_t *task) {
 
   log_debug("%s inserting task(%d) in queue", __func__, task->tid);
   task_manager_print(manager);
-  if (queue_append((queue_t **)&(manager->taskQueue), (queue_t *)task) < 0) {
+  if (queue_insert_inorder((queue_t **)&(manager->taskQueue), (queue_t *)task,
+                           qcompare)) {
     log_error("%s could not insert task(%d) in queue", __func__, task->tid);
     return -1;
   }
@@ -100,8 +110,28 @@ int task_manager_remove(TaskManager *manager, task_t *task) {
   log_debug("%s queue after insertion", __func__);
   task_manager_print(manager);
 
+  task->current_priority = task->initial_priority;
+
   manager->count--;
   return 0;
+}
+
+void task_manager_aging(TaskManager *manager) {
+  if (manager == NULL) {
+    log_error("%s received a NULL manager", __func__);
+    return;
+  }
+
+  task_t *aux = manager->taskQueue;
+  if (!aux) {
+    log_debug("%s queue is empty", __func__);
+    return;
+  }
+
+  do {
+    aux->current_priority += PRIORITY_AGE;
+    aux = aux->next;
+  } while (aux != manager->taskQueue);
 }
 
 #ifdef DEBUG

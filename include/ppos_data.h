@@ -25,6 +25,9 @@ typedef struct task_t {
   int status;                 // ready, executing, finished, ...
   ucontext_t context;         // Current context
   char *stack;                // The stack used by the context
+  int initial_priority;       // The start priority of the task (default is 0)
+  int current_priority;       // The real priority of the task, can be different
+                              // because of aging
 } task_t;
 
 #endif // PP_TASK_H

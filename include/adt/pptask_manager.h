@@ -59,6 +59,16 @@ int task_manager_insert(TaskManager *manager, task_t *task);
  */
 int task_manager_remove(TaskManager *manager, task_t *task);
 
+/**
+ * @brief Age the priority of every task that is in the queue.
+ *
+ * The process of aging is basically changing the priority of everyone in the
+ * queue to a higher priority.
+ *
+ * @param manager Pointer for the Task Manager
+ */
+void task_manager_aging(TaskManager *manager);
+
 #ifdef DEBUG
 /**
  * @brief Prints the queue inside the task manager

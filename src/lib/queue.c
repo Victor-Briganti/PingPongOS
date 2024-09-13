@@ -47,7 +47,43 @@ int queue_append(queue_t **queue, queue_t *elem) {
     return Q_ERR_ELEM_NULL;
   }
 
-  if (elem->next != NULL && elem->prev != NULL) {
+  if (elem->next != NULL || elem->prev != NULL) {
+    return Q_ERR_ELEM_DUP_LIST;
+  }
+
+  // The queue does not have any element
+  if (*queue == NULL) {
+    elem->next = elem;
+    elem->prev = elem;
+    *queue = elem;
+    return 0;
+  }
+
+  elem->next = *queue;
+  elem->prev = (*queue)->prev;
+
+  (*queue)->prev->next = elem;
+  (*queue)->prev = elem;
+
+  // If we have only one element the next pointer also needs to be updated
+  if ((*queue)->next == *queue) {
+    (*queue)->next = elem;
+  }
+
+  return 0;
+}
+
+int queue_insert_inorder(queue_t **queue, queue_t *elem,
+                         int (*compare)(const void *ptr1, const void *ptr2)) {
+  if (queue == NULL) {
+    return Q_ERR_NULL;
+  }
+
+  if (elem == NULL) {
+    return Q_ERR_ELEM_NULL;
+  }
+
+  if (elem->next != NULL || elem->prev != NULL) {
     return Q_ERR_ELEM_DUP_LIST;
   }
 
@@ -61,19 +97,25 @@ int queue_append(queue_t **queue, queue_t *elem) {
 
   // Search through the list the elem passed
   queue_t *aux = *queue;
-  while (aux != *queue) {
-    if (aux == elem) {
-      return Q_ERR_ELEM_DUP;
+  do {
+    if (compare(elem, aux) <= 0) {
+      break;
     }
 
     aux = aux->next;
+  } while (aux != *queue);
+
+  if (aux == *queue) {
+    elem->next = *queue;
+    elem->prev = (*queue)->prev;
+    (*queue)->prev->next = elem;
+    (*queue)->prev = elem;
+  } else {
+    elem->next = aux;
+    elem->prev = aux->prev;
+    aux->prev->next = elem;
+    aux->prev = elem;
   }
-
-  elem->next = *queue;
-  elem->prev = (*queue)->prev;
-
-  (*queue)->prev->next = elem;
-  (*queue)->prev = elem;
 
   // If we have only one element the next pointer also needs to be updated
   if ((*queue)->next == *queue) {

@@ -59,11 +59,32 @@ void queue_print(char *name, queue_t *queue, void print_elem(void *));
  * - The element must not be null
  * - The element must not be in the queue
  *
- * @param queue
- * @param elem
+ * @param queue Pointer for the queue that is going to receive the element
+ * @param elem The element that is going to be inserted into the queue
+ *
  * @return 0 if it was successfuly inserted, <0 if something went wrong
  */
 int queue_append(queue_t **queue, queue_t *elem);
+
+/**
+ * @brief Inserts an element in the queue in order.
+ *
+ * Before inserting the elements, some condition must be met:
+ * - The queue must not be null
+ * - The element must not be null
+ * - The element must not be in the queue
+ *
+ * @param queue Pointer for the queue that is going to receive the element
+ * @param elem The element that is going to be inserted into the queue
+ * @param compare Function used to determine the insertion.
+ *                 - 0> ptr1 should be placed after ptr2.
+ *                 - 0< ptr1 should be placed before ptr2.
+ *                 - 0  ptr1 and ptr2 are equal.
+ *
+ * @return 0 if it was successfuly inserted, <0 if something went wrong
+ */
+int queue_insert_inorder(queue_t **queue, queue_t *elem,
+                         int (*compare)(const void *ptr1, const void *ptr2));
 
 /**
  * @brief Removes the element in the queue.

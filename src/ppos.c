@@ -33,7 +33,12 @@ static int threadCount = 0;
 
 static task_t *scheduler() {
   if (readyQueue->count) {
-    return readyQueue->taskQueue;
+    task_t *task = readyQueue->taskQueue;
+    task_manager_aging(readyQueue);
+
+    // Reset the priority of the task
+    task->current_priority = task->initial_priority;
+    return task;
   }
 
   return NULL;
@@ -57,7 +62,7 @@ static void dispatcher() {
     executingTask = dispatcherTask;
     task_t *next = scheduler();
     if (next == NULL) {
-      log_error("%s next task(nil)");
+      log_error("%s next task(nil)", __func__);
       exit(-1);
     }
 
@@ -153,6 +158,8 @@ int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
   task->next = NULL;
   task->prev = NULL;
   task->tid = threadCount;
+  task->initial_priority = 0;
+  task->current_priority = 0;
 
   if (threadCount == MAIN_TASK) {
     task->status = TASK_EXEC;
