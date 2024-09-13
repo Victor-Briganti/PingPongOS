@@ -19,6 +19,14 @@
             "program": "${workspaceFolder}/build/TaskTest",
             "args": [],
             "cwd": "${workspaceFolder}"
-        }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug Dispatcher",
+            "program": "${workspaceFolder}/build/DispatcherTest",
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

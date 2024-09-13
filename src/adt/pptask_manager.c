@@ -43,7 +43,7 @@ static void qtask_print(void *ptr) {
     (void)fprintf(stderr, "(nil) ");
   }
 
-  (void)fprintf(stderr, "%d ", task->tid);
+  (void)fprintf(stderr, "%d{%d} ", task->tid, task->current_priority);
 }
 #endif // DEBUG
 
@@ -51,7 +51,7 @@ static int qcompare(const void *ptr1, const void *ptr2) {
   task_t *elem = (task_t *)ptr1;
   task_t *queue = (task_t *)ptr2;
 
-  return queue->current_priority - elem->initial_priority;
+  return elem->initial_priority - queue->current_priority;
 }
 
 //=============================================================================
@@ -67,23 +67,23 @@ void task_manager_delete(TaskManager *manager) { free(manager); }
 
 int task_manager_insert(TaskManager *manager, task_t *task) {
   if (manager == NULL) {
-    log_error("%s received a NULL manager", __func__);
+    log_error("received a NULL manager");
     return -1;
   }
 
   if (task == NULL) {
-    log_error("%s received a NULL task", __func__);
+    log_error("received a NULL task");
     return -1;
   }
 
-  log_debug("%s inserting task(%d) in queue", __func__, task->tid);
+  log_debug("inserting task(%d) in queue", task->tid);
   task_manager_print(manager);
   if (queue_insert_inorder((queue_t **)&(manager->taskQueue), (queue_t *)task,
                            qcompare)) {
-    log_error("%s could not insert task(%d) in queue", __func__, task->tid);
+    log_error("could not insert task(%d) in queue", task->tid);
     return -1;
   }
-  log_debug("%s queue after insertion", __func__);
+  log_debug("queue after insertion");
   task_manager_print(manager);
 
   manager->count++;
@@ -92,22 +92,22 @@ int task_manager_insert(TaskManager *manager, task_t *task) {
 
 int task_manager_remove(TaskManager *manager, task_t *task) {
   if (manager == NULL) {
-    log_error("%s received a NULL manager", __func__);
+    log_error("received a NULL manager");
     return -1;
   }
 
   if (task == NULL) {
-    log_error("%s received a NULL task", __func__);
+    log_error("received a NULL task");
     return -1;
   }
 
-  log_debug("%s removing task(%d) of the queue %p", __func__, task->tid);
+  log_debug("removing task(%d) of the queue %p", task->tid);
   task_manager_print(manager);
   if (queue_remove((queue_t **)&(manager->taskQueue), (queue_t *)task) < 0) {
-    log_error("%s could not remove task(%d) of the queue", __func__, task->tid);
+    log_error("could not remove task(%d) of the queue", task->tid);
     return -1;
   }
-  log_debug("%s queue after insertion", __func__);
+  log_debug("queue after insertion");
   task_manager_print(manager);
 
   task->current_priority = task->initial_priority;
@@ -118,13 +118,13 @@ int task_manager_remove(TaskManager *manager, task_t *task) {
 
 void task_manager_aging(TaskManager *manager) {
   if (manager == NULL) {
-    log_error("%s received a NULL manager", __func__);
+    log_error("received a NULL manager");
     return;
   }
 
   task_t *aux = manager->taskQueue;
   if (!aux) {
-    log_debug("%s queue is empty", __func__);
+    log_debug("queue is empty");
     return;
   }
 

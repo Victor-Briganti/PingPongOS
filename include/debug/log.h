@@ -41,13 +41,20 @@ enum {
 #define LOG_COLOR_DISABLE 0
 
 #ifdef DEBUG
-void __logger(int log_level, const char *file, int line, const char *fmt, ...);
-#define log_trace(...) __logger(LOG_TRACE, __FILE__, __LINE__, __VA_ARGS__)
-#define log_debug(...) __logger(LOG_DEBUG, __FILE__, __LINE__, __VA_ARGS__)
-#define log_info(...) __logger(LOG_INFO, __FILE__, __LINE__, __VA_ARGS__)
-#define log_warn(...) __logger(LOG_WARN, __FILE__, __LINE__, __VA_ARGS__)
-#define log_error(...) __logger(LOG_ERROR, __FILE__, __LINE__, __VA_ARGS__)
-#define log_fatal(...) __logger(LOG_FATAL, __FILE__, __LINE__, __VA_ARGS__)
+void __logger(int log_level, const char *file, int line, const char *func,
+              const char *fmt, ...);
+#define log_trace(...)                                                         \
+  __logger(LOG_TRACE, __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define log_debug(...)                                                         \
+  __logger(LOG_DEBUG, __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define log_info(...)                                                          \
+  __logger(LOG_INFO, __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define log_warn(...)                                                          \
+  __logger(LOG_WARN, __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define log_error(...)                                                         \
+  __logger(LOG_ERROR, __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define log_fatal(...)                                                         \
+  __logger(LOG_FATAL, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
 /**
  * @brief Configures the logging system.

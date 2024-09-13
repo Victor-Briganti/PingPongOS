@@ -13,7 +13,8 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include <time.h>
+
+#ifdef DEBUG
 
 static FILE *output = NULL;
 static int color = LOG_COLOR_DISABLE;
@@ -91,16 +92,17 @@ static void print_level(int level) {
   }
 }
 
-static void logger(int log_level, const char *file, int line, const char *fmt,
-                   va_list args) {
+static void logger(int log_level, const char *file, int line, const char *func,
+                   const char *fmt, va_list args) {
   print_level(log_level);
-  (void)fprintf(output, "%s:%d ", file, line);
+  (void)fprintf(output, "%s() %s:%d ", func, file, line);
 
   (void)vfprintf(output, fmt, args);
   (void)fprintf(output, "\n");
 }
 
-void __logger(int log_level, const char *file, int line, const char *fmt, ...) {
+void __logger(int log_level, const char *file, int line, const char *func,
+              const char *fmt, ...) {
   if (output == NULL) {
     output = stderr;
   }
@@ -108,7 +110,7 @@ void __logger(int log_level, const char *file, int line, const char *fmt, ...) {
   if (log_level > level) {
     va_list args;
     va_start(args, fmt);
-    logger(log_level, file, line, fmt, args);
+    logger(log_level, file, line, func, fmt, args);
     va_end(args);
   }
 }
@@ -118,3 +120,5 @@ void log_set(FILE *file, int enable_color, int log_level) {
   color = enable_color;
   level = log_level;
 }
+
+#endif

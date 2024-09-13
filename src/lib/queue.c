@@ -65,11 +65,6 @@ int queue_append(queue_t **queue, queue_t *elem) {
   (*queue)->prev->next = elem;
   (*queue)->prev = elem;
 
-  // If we have only one element the next pointer also needs to be updated
-  if ((*queue)->next == *queue) {
-    (*queue)->next = elem;
-  }
-
   return 0;
 }
 
@@ -96,31 +91,44 @@ int queue_insert_inorder(queue_t **queue, queue_t *elem,
   }
 
   // Search through the list the elem passed
+  int resultComp = 0;
   queue_t *aux = *queue;
   do {
-    if (compare(elem, aux) <= 0) {
+    resultComp = compare(elem, aux);
+    if (resultComp < 0) {
       break;
     }
 
     aux = aux->next;
   } while (aux != *queue);
 
-  if (aux == *queue) {
-    elem->next = *queue;
-    elem->prev = (*queue)->prev;
-    (*queue)->prev->next = elem;
-    (*queue)->prev = elem;
-  } else {
-    elem->next = aux;
-    elem->prev = aux->prev;
-    aux->prev->next = elem;
-    aux->prev = elem;
+  if (aux == *queue && resultComp >= 0) {
+    return queue_append(queue, elem);
   }
 
-  // If we have only one element the next pointer also needs to be updated
-  if ((*queue)->next == *queue) {
+  if (aux == *queue && resultComp == 0) {
+    elem->prev = *queue;
+    elem->next = (*queue)->next;
+    (*queue)->next->prev = elem;
     (*queue)->next = elem;
+    return 0;
   }
+
+  if (aux == *queue && resultComp < 0) {
+    elem->next = *queue;
+    elem->prev = (*queue)->prev;
+    (*queue)->prev = elem;
+    if ((*queue)->next == *queue) {
+      (*queue)->next = elem;
+    }
+    *queue = elem;
+    return 0;
+  }
+
+  elem->next = aux;
+  elem->prev = aux->prev;
+  aux->prev->next = elem;
+  aux->prev = elem;
 
   return 0;
 }

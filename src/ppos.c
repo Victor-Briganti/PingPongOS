@@ -46,12 +46,12 @@ static task_t *scheduler() {
 
 static void dispatcher() {
   if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
-    log_error("%s could not be removed from ready queue", __func__);
+    log_error("could not be removed from ready queue");
     exit(-1);
   }
 
   if (executingTask->status == TASK_FINISH) {
-    log_info("%s executing task(%d) TASK_FINISH", __func__, executingTask->tid);
+    log_info("executing task(%d) TASK_FINISH", executingTask->tid);
     free(executingTask->stack);
     if (executingTask->tid == MAIN_TASK) {
       free(executingTask);
@@ -62,36 +62,35 @@ static void dispatcher() {
     executingTask = dispatcherTask;
     task_t *next = scheduler();
     if (next == NULL) {
-      log_error("%s next task(nil)", __func__);
+      log_error("next task(nil)");
       exit(-1);
     }
 
     if (task_switch(next) < 0) {
-      log_error("%s could not execute task(%d)", __func__, next->tid);
+      log_error("could not execute task(%d)", next->tid);
       exit(-1);
     }
 
     if (executingTask->status == TASK_FINISH) {
-      log_info("%s executing task(%d) TASK_FINISH", __func__,
-               executingTask->tid);
+      log_info("executing task(%d) TASK_FINISH", executingTask->tid);
       free(executingTask->stack);
       if (executingTask->tid == MAIN_TASK) {
         free(executingTask);
       }
     } else if (executingTask->status == TASK_READY) {
-      log_debug("%s inserting executing task(%d) in ready queue", __func__,
+      log_debug("inserting executing task(%d) in ready queue",
                 executingTask->tid);
       task_manager_print(readyQueue);
       if (task_manager_insert(readyQueue, executingTask) < 0) {
-        log_error("%s failed to insert executing task(%d) in ready queue",
-                  __func__, executingTask->tid);
+        log_error("failed to insert executing task(%d) in ready queue",
+                  executingTask->tid);
         exit(-1);
       }
       task_manager_print(readyQueue);
     }
 
     if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
-      log_error("%s could not be removed from ready queue", __func__);
+      log_error("could not be removed from ready queue");
       exit(-1);
     }
   }
@@ -112,30 +111,30 @@ void ppos_init() {
 
   readyQueue = task_manager_create();
   if (readyQueue == NULL) {
-    log_error("%s couldn't initiate the ready queue", __func__);
+    log_error("couldn't initiate the ready queue");
     exit(-1);
   }
 
-  log_debug("%s allocating main task", __func__);
+  log_debug("allocating main task");
   executingTask = malloc(sizeof(task_t));
   if (executingTask == NULL) {
-    log_error("%s failed to allocate main task", __func__);
+    log_error("failed to allocate main task");
     exit(-1);
   }
 
   if (task_init(executingTask, NULL, NULL) < 0) {
-    log_error("%s main task could not be initialized", __func__);
+    log_error("main task could not be initialized");
     exit(-1);
   }
 
   dispatcherTask = malloc(sizeof(task_t));
   if (dispatcherTask == NULL) {
-    log_error("%s failed to allocate dispatcher task", __func__);
+    log_error("failed to allocate dispatcher task");
     exit(-1);
   }
 
   if (task_init(dispatcherTask, dispatcher, NULL) < 0) {
-    log_error("%s dispatcher task could not be initialized", __func__);
+    log_error("dispatcher task could not be initialized");
     exit(-1);
   }
 }
@@ -146,12 +145,12 @@ void ppos_init() {
 
 int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
   if (task == NULL) {
-    log_error("%s received a task == NULL", __func__);
+    log_error("received a task == NULL");
     return -1;
   }
 
   if (threadCount != MAIN_TASK && start_routine == NULL) {
-    log_error("%s received a start_routine == NULL", __func__);
+    log_error("received a start_routine == NULL");
     return -1;
   }
 
@@ -177,14 +176,13 @@ int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
       task->context.uc_stack.ss_flags = 0;
       task->context.uc_link = 0;
     } else {
-      log_error("%s stack could not be allocated", __func__);
+      log_error("stack could not be allocated");
       return -1;
     }
     makecontext(&(task->context), (void *)start_routine, 1, arg);
 
     if (task_manager_insert(readyQueue, task) < 0) {
-      log_debug("%s task(%d) could not be appended in the ready queue",
-                __func__, task->tid);
+      log_debug("task(%d) could not be appended in the ready queue", task->tid);
       return -1;
     }
   }
@@ -195,23 +193,21 @@ int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
 
 int task_switch(task_t *task) {
   if (task == NULL) {
-    log_debug("%s received task == NULL", __func__);
+    log_debug("received task == NULL");
     return -1;
   }
 
-  log_debug("%s (%d)->(%d)", __func__, executingTask->tid, task->tid);
+  log_debug("(%d)->(%d)", executingTask->tid, task->tid);
 
   task_manager_print(readyQueue);
   if (task_manager_remove(readyQueue, task) < 0) {
-    log_debug("%s could not remove task(%d) from ready queue", __func__,
-              task->tid);
+    log_debug("could not remove task(%d) from ready queue", task->tid);
     return -1;
   }
   task_manager_print(readyQueue);
 
   if (task_manager_insert(readyQueue, executingTask) < 0) {
-    log_debug("%s could not insert task(%d) into ready queue", __func__,
-              executingTask->tid);
+    log_debug("could not insert task(%d) into ready queue", executingTask->tid);
     return -1;
   }
   task_manager_print(readyQueue);
@@ -226,18 +222,18 @@ int task_switch(task_t *task) {
 }
 
 void task_exit(int exit_code) {
-  log_debug("%s task(%d)", __func__, executingTask->tid);
+  log_debug("task(%d)", executingTask->tid);
   executingTask->status = TASK_FINISH;
   swapcontext(&(executingTask->context), &(dispatcherTask->context));
 }
 
 int task_id() {
-  log_debug("%s %d", __func__, executingTask->tid);
+  log_debug("%d", executingTask->tid);
   return executingTask->tid;
 }
 
 void task_yield() {
-  log_debug("%s task(%d)", __func__, executingTask->tid);
+  log_debug("task(%d)", executingTask->tid);
   executingTask->status = TASK_READY;
   swapcontext(&(executingTask->context), &(dispatcherTask->context));
 }
