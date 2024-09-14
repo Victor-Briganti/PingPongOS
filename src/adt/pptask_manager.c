@@ -48,7 +48,19 @@ static void qtask_print(void *ptr) {
 }
 #endif // DEBUG
 
-static int qcompare(const void *ptr1, const void *ptr2) {
+static void qtask_aging(void *ptr) {
+  task_t *task = (task_t *)ptr;
+
+  if (task == NULL) {
+    return;
+  }
+
+  if (task->current_priority > TASK_MIN_PRIO) {
+    task->current_priority += PRIORITY_AGING;
+  }
+}
+
+static int qtask_compare(const void *ptr1, const void *ptr2) {
   task_t *elem = (task_t *)ptr1;
   task_t *queue = (task_t *)ptr2;
 
@@ -80,11 +92,10 @@ int task_manager_insert(TaskManager *manager, task_t *task) {
   log_debug("inserting task(%d) in queue", task->tid);
   task_manager_print(manager);
   if (queue_insert_inorder((queue_t **)&(manager->taskQueue), (queue_t *)task,
-                           qcompare)) {
+                           qtask_compare)) {
     log_error("could not insert task(%d) in queue", task->tid);
     return -1;
   }
-  log_debug("queue after insertion");
   task_manager_print(manager);
 
   manager->count++;
@@ -102,13 +113,17 @@ int task_manager_remove(TaskManager *manager, task_t *task) {
     return -1;
   }
 
+  if (manager->count == 0) {
+    log_debug("queue is empty");
+    return -1;
+  }
+
   log_debug("removing task(%d) of the queue %p", task->tid);
   task_manager_print(manager);
   if (queue_remove((queue_t **)&(manager->taskQueue), (queue_t *)task) < 0) {
     log_error("could not remove task(%d) of the queue", task->tid);
     return -1;
   }
-  log_debug("queue after removing");
   task_manager_print(manager);
 
   task->current_priority = task->initial_priority;
@@ -122,19 +137,13 @@ void task_manager_aging(TaskManager *manager) {
     return;
   }
 
-  task_t *aux = manager->taskQueue;
-  if (!aux) {
+  if (manager->count == 0) {
     log_debug("queue is empty");
     return;
   }
 
-  do {
-    if (aux->current_priority > TASK_MIN_PRIO) {
-      aux->current_priority += PRIORITY_AGING;
-    }
-
-    aux = aux->next;
-  } while (aux != manager->taskQueue);
+  log_debug("aging the queue");
+  queue_map((queue_t *)(manager->taskQueue), qtask_aging);
 }
 
 #ifdef DEBUG
@@ -144,6 +153,12 @@ void task_manager_print(TaskManager *manager) {
     return;
   }
 
-  queue_print("taskQueue", (queue_t *)(manager->taskQueue), qtask_print);
+  if (manager->count == 0) {
+    (void)fprintf(stderr, "empty queue\n");
+    return;
+  }
+
+  queue_map((queue_t *)(manager->taskQueue), qtask_print);
+  (void)fprintf(stderr, "\n");
 }
 #endif // DEBUG

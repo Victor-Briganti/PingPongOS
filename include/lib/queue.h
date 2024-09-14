@@ -39,17 +39,14 @@ typedef struct queue_t {
 int queue_size(queue_t *queue);
 
 /**
- * @brief Walk the queue printing its content.
+ * @brief Execute the function in every element of the queue.
  *
- * Each element is printed by a function passed by the user.
- * The printing is going to have the following structure:
- * <name>: [print_elem(ptr)]
+ * Each element is passed as an argument into the func.
  *
- * @param name Name of the queue to be printend
- * @param queue Pointer for the queue that is going to be printed
- * @param print_elem Void pointer that defines the print function
+ * @param queue Pointer for the queue
+ * @param func Void pointer for the function
  */
-void queue_print(char *name, queue_t *queue, void print_elem(void *));
+void queue_map(queue_t *queue, void func(void *));
 
 /**
  * @brief Inserts an element in the end of the queue.
