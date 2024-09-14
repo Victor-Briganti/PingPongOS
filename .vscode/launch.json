@@ -28,5 +28,13 @@
             "args": [],
             "cwd": "${workspaceFolder}"
         },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug Scheduler",
+            "program": "${workspaceFolder}/build/SchedulerTest",
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

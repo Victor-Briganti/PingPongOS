@@ -21,10 +21,11 @@
 #include "adt/pptask_manager.h"
 #include "debug/log.h"
 #include "lib/queue.h"
+#include "ppos_data.h"
 
 #include <stdlib.h>
 
-#define PRIORITY_AGE -1
+#define PRIORITY_AGING -1
 
 //=============================================================================
 // Private Functions
@@ -107,11 +108,10 @@ int task_manager_remove(TaskManager *manager, task_t *task) {
     log_error("could not remove task(%d) of the queue", task->tid);
     return -1;
   }
-  log_debug("queue after insertion");
+  log_debug("queue after removing");
   task_manager_print(manager);
 
   task->current_priority = task->initial_priority;
-
   manager->count--;
   return 0;
 }
@@ -129,7 +129,10 @@ void task_manager_aging(TaskManager *manager) {
   }
 
   do {
-    aux->current_priority += PRIORITY_AGE;
+    if (aux->current_priority > TASK_MIN_PRIO) {
+      aux->current_priority += PRIORITY_AGING;
+    }
+
     aux = aux->next;
   } while (aux != manager->taskQueue);
 }

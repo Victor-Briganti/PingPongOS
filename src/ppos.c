@@ -80,13 +80,12 @@ static void dispatcher() {
     } else if (executingTask->status == TASK_READY) {
       log_debug("inserting executing task(%d) in ready queue",
                 executingTask->tid);
-      task_manager_print(readyQueue);
+
       if (task_manager_insert(readyQueue, executingTask) < 0) {
         log_error("failed to insert executing task(%d) in ready queue",
                   executingTask->tid);
         exit(-1);
       }
-      task_manager_print(readyQueue);
     }
 
     if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
@@ -199,18 +198,15 @@ int task_switch(task_t *task) {
 
   log_debug("(%d)->(%d)", executingTask->tid, task->tid);
 
-  task_manager_print(readyQueue);
   if (task_manager_remove(readyQueue, task) < 0) {
     log_debug("could not remove task(%d) from ready queue", task->tid);
     return -1;
   }
-  task_manager_print(readyQueue);
 
   if (task_manager_insert(readyQueue, executingTask) < 0) {
     log_debug("could not insert task(%d) into ready queue", executingTask->tid);
     return -1;
   }
-  task_manager_print(readyQueue);
 
   task_t *temp = executingTask;
   executingTask = task;
@@ -236,4 +232,43 @@ void task_yield() {
   log_debug("task(%d)", executingTask->tid);
   executingTask->status = TASK_READY;
   swapcontext(&(executingTask->context), &(dispatcherTask->context));
+}
+
+int task_getprio(const task_t *const task) {
+  if (task == NULL) {
+    return executingTask->initial_priority;
+  }
+
+  return task->initial_priority;
+}
+
+int task_setprio(task_t *task, int prio) {
+  if (prio > TASK_MAX_PRIO || prio < TASK_MIN_PRIO) {
+    return -1;
+  }
+
+  task_t *aux = NULL;
+  if (task == NULL) {
+    aux = executingTask;
+  } else {
+    aux = task;
+  }
+
+  int diffPriority = aux->initial_priority - aux->current_priority;
+  aux->current_priority = prio - diffPriority;
+  aux->initial_priority = prio;
+
+  if (aux != executingTask) {
+    if (task_manager_remove(readyQueue, aux) < 0) {
+      log_debug("could not remove task(%d) from ready queue", aux->tid);
+      return -1;
+    }
+
+    if (task_manager_insert(readyQueue, aux) < 0) {
+      log_debug("could not insert task(%d) into ready queue", aux->tid);
+      return -1;
+    }
+  }
+
+  return 0;
 }

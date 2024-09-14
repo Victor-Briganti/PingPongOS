@@ -81,3 +81,25 @@ int task_id();
  * execute another task or thread.
  */
 void task_yield();
+
+/**
+ * @brief Gets the priority of a task.
+ *
+ * @param task Pointer for the task that we want to return the priority. If NULL
+ * is passed the priority of the executing task is returned.
+ *
+ * @return The priority of the task.
+ */
+int task_getprio(const task_t *const task);
+
+/**
+ * @brief Changes the priority of the task.
+ *
+ * @param task Pointer for the task that we want to return the priority. If NULL
+ * the priority of the executing task is set.
+ * @param prio The new priority that is going to be set. The value needs to be
+ * between -20 and +20.
+ *
+ * @return 0 if the priority could be adjusted, or 0< otherwise.
+ */
+int task_setprio(task_t *task, int prio);

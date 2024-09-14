@@ -70,13 +70,20 @@ target_include_directories(TaskMaxSeqTest PUBLIC include)
 # Link the PingPongOs with the task test executable
 target_link_libraries(TaskMaxSeqTest PRIVATE PingPongLib)
 
-# Define the test executable for the task(max sequential)
+# Define the test executable for the dispatcher
 add_executable(DispatcherTest test/dispatcher/ppdisp.c)
 target_include_directories(DispatcherTest PUBLIC include)
-# Link the PingPongOs with the task test executable
+# Link the PingPongOs with the dispatcher test executable
 target_link_libraries(DispatcherTest PRIVATE PingPongLib)
+
+# Define the test executable for the scheduler
+add_executable(SchedulerTest test/scheduler/ppschedule.c)
+target_include_directories(DispatcherTest PUBLIC include)
+# Link the PingPongOs with the scheduler test executable
+target_link_libraries(SchedulerTest PRIVATE PingPongLib)
 
 # Add the test
 add_test(NAME QueueTests COMMAND QueueTest)
 add_test(NAME TaskTests COMMAND TaskTest TaskMaxTest TaskMaxSeqTest)
 add_test(NAME DispatcherTests COMMAND DispatcherTest)
+add_test(NAME SchedulerTests COMMAND SchedulerTest)

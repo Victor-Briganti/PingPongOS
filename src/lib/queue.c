@@ -117,10 +117,8 @@ int queue_insert_inorder(queue_t **queue, queue_t *elem,
   if (aux == *queue && resultComp < 0) {
     elem->next = *queue;
     elem->prev = (*queue)->prev;
+    (*queue)->prev->next = elem;
     (*queue)->prev = elem;
-    if ((*queue)->next == *queue) {
-      (*queue)->next = elem;
-    }
     *queue = elem;
     return 0;
   }

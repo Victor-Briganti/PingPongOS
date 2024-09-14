@@ -19,6 +19,9 @@
 #define TASK_EXEC 1
 #define TASK_FINISH 2
 
+#define TASK_MAX_PRIO 20
+#define TASK_MIN_PRIO -20
+
 typedef struct task_t {
   struct task_t *prev, *next; // Used in the queue_t
   int tid;                    // id for the task
