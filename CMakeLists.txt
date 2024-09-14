@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10..3.28)
 project(PingPongOS VERSION 0.0.1 LANGUAGES C)
 
 # Compiler flags
-#set(CMAKE_C_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-sign-conversion -Wconversion")
+# set(CMAKE_C_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-unused    -function -Wno-sign-conversion -Wconversion")
 set(CMAKE_C_FLAGS "-DDEBUG -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-sign-conversion -Wconversion")
 
 # Enable testing
@@ -82,8 +82,15 @@ target_include_directories(DispatcherTest PUBLIC include)
 # Link the PingPongOs with the scheduler test executable
 target_link_libraries(SchedulerTest PRIVATE PingPongLib)
 
+# Define the test executable for the timer interrupt
+add_executable(TimerIntTest test/timer/pptimerint.c)
+target_include_directories(TimerIntTest PUBLIC include)
+# Link the PingPongOs with the scheduler test executable
+target_link_libraries(TimerIntTest PRIVATE PingPongLib)
+
 # Add the test
 add_test(NAME QueueTests COMMAND QueueTest)
 add_test(NAME TaskTests COMMAND TaskTest TaskMaxTest TaskMaxSeqTest)
 add_test(NAME DispatcherTests COMMAND DispatcherTest)
 add_test(NAME SchedulerTests COMMAND SchedulerTest)
+add_test(NAME TimerTests COMMAND TimerIntTest)

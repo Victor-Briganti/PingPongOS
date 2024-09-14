@@ -13,23 +13,39 @@
 #include "debug/log.h"
 #include "ppos_data.h"
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
 #include <sys/ucontext.h>
 #include <ucontext.h>
 
-// Reserved IDs for special Tasks
-#define MAIN_TASK 0
-#define DISPATCHER_TASK 1
-
+// Task Global structures
 static TaskManager *readyQueue = NULL;
 static task_t *executingTask = NULL;
 static task_t *dispatcherTask = NULL;
 static int threadCount = 0;
 
+// Timer Global structures
+struct sigaction action;
+struct itimerval timer;
+
+#define TIMER 1000 // 1 ms in microseconds
+
 //=============================================================================
 // Scheduler Private Functions
 //=============================================================================
+
+static void exec_task_reduce_quantum() {
+  if (executingTask->type != USER) {
+    return;
+  }
+
+  executingTask->quantum -= 1;
+  if (executingTask->quantum <= 0) {
+    task_yield();
+  }
+}
 
 static task_t *scheduler() {
   if (readyQueue->count) {
@@ -47,7 +63,7 @@ static task_t *scheduler() {
 static void dispatcher() {
   if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
     log_error("could not be removed from ready queue");
-    exit(-1);
+    exit(1);
   }
 
   if (executingTask->status == TASK_FINISH) {
@@ -63,12 +79,13 @@ static void dispatcher() {
     task_t *next = scheduler();
     if (next == NULL) {
       log_error("next task(nil)");
-      exit(-1);
+      exit(1);
     }
 
+    next->quantum = TASK_QUANTUM;
     if (task_switch(next) < 0) {
       log_error("could not execute task(%d)", next->tid);
-      exit(-1);
+      exit(1);
     }
 
     if (executingTask->status == TASK_FINISH) {
@@ -84,17 +101,70 @@ static void dispatcher() {
       if (task_manager_insert(readyQueue, executingTask) < 0) {
         log_error("failed to insert executing task(%d) in ready queue",
                   executingTask->tid);
-        exit(-1);
+        exit(1);
       }
     }
 
     if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
       log_error("could not be removed from ready queue");
-      exit(-1);
+      exit(1);
     }
   }
 
   exit(0);
+}
+
+static void ppos_init_tasks() {
+  readyQueue = task_manager_create();
+  if (readyQueue == NULL) {
+    log_error("couldn't initiate the ready queue");
+    exit(1);
+  }
+
+  log_debug("allocating main task");
+  executingTask = malloc(sizeof(task_t));
+  if (executingTask == NULL) {
+    log_error("failed to allocate main task");
+    exit(1);
+  }
+
+  if (task_init(executingTask, NULL, NULL) < 0) {
+    log_error("main task could not be initialized");
+    exit(1);
+  }
+
+  dispatcherTask = malloc(sizeof(task_t));
+  if (dispatcherTask == NULL) {
+    log_error("failed to allocate dispatcher task");
+    exit(1);
+  }
+
+  if (task_init(dispatcherTask, dispatcher, NULL) < 0) {
+    log_error("dispatcher task could not be initialized");
+    exit(1);
+  }
+  dispatcherTask->type = SYSTEM;
+}
+
+static void ppos_init_timer() {
+  action.sa_handler = exec_task_reduce_quantum;
+  sigemptyset(&action.sa_mask);
+  action.sa_flags = 0;
+
+  if (sigaction(SIGALRM, &action, 0) < 0) {
+    log_error("erro no sigaction");
+    exit(1);
+  }
+
+  timer.it_value.tv_usec = TIMER;
+  timer.it_value.tv_sec = 0;
+  timer.it_interval.tv_usec = TIMER;
+  timer.it_interval.tv_sec = 0;
+
+  if (setitimer(ITIMER_REAL, &timer, 0) < 0) {
+    log_error("erro no setitimer");
+    exit(1);
+  }
 }
 
 //=============================================================================
@@ -107,35 +177,8 @@ void ppos_init() {
   (void)setvbuf(stdout, 0, _IONBF, 0);
 
   log_set(stderr, 0, LOG_TRACE);
-
-  readyQueue = task_manager_create();
-  if (readyQueue == NULL) {
-    log_error("couldn't initiate the ready queue");
-    exit(-1);
-  }
-
-  log_debug("allocating main task");
-  executingTask = malloc(sizeof(task_t));
-  if (executingTask == NULL) {
-    log_error("failed to allocate main task");
-    exit(-1);
-  }
-
-  if (task_init(executingTask, NULL, NULL) < 0) {
-    log_error("main task could not be initialized");
-    exit(-1);
-  }
-
-  dispatcherTask = malloc(sizeof(task_t));
-  if (dispatcherTask == NULL) {
-    log_error("failed to allocate dispatcher task");
-    exit(-1);
-  }
-
-  if (task_init(dispatcherTask, dispatcher, NULL) < 0) {
-    log_error("dispatcher task could not be initialized");
-    exit(-1);
-  }
+  ppos_init_tasks();
+  ppos_init_timer();
 }
 
 //=============================================================================
@@ -158,6 +201,8 @@ int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
   task->tid = threadCount;
   task->initial_priority = 0;
   task->current_priority = 0;
+  task->type = USER;
+  task->quantum = TASK_QUANTUM;
 
   if (threadCount == MAIN_TASK) {
     task->status = TASK_EXEC;
