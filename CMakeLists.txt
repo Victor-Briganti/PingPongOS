@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10..3.28)
 project(PingPongOS VERSION 0.0.1 LANGUAGES C)
 
 # Compiler flags
-# set(CMAKE_C_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-unused    -function -Wno-sign-conversion -Wconversion")
+# set(CMAKE_C_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-sign-conversion -Wconversion")
 set(CMAKE_C_FLAGS "-DDEBUG -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-sign-conversion -Wconversion")
 
 # Enable testing
@@ -83,14 +83,26 @@ target_include_directories(DispatcherTest PUBLIC include)
 target_link_libraries(SchedulerTest PRIVATE PingPongLib)
 
 # Define the test executable for the timer interrupt
-add_executable(TimerIntTest test/timer/pptimerint.c)
+add_executable(TimerIntTest test/timer/pptimer_int.c)
 target_include_directories(TimerIntTest PUBLIC include)
-# Link the PingPongOs with the scheduler test executable
+# Link the PingPongOs with the timer interrupt test executable
 target_link_libraries(TimerIntTest PRIVATE PingPongLib)
+
+# Define the test executable for system timer
+add_executable(TimerTest test/timer/pptimer.c)
+target_include_directories(TimerTest PUBLIC include)
+# Link the PingPongOs with the system timer test executable
+target_link_libraries(TimerTest PRIVATE PingPongLib)
+
+# Define the test executable for system timer with interrupt
+add_executable(TimerPrioTest test/timer/pptimer_prio.c)
+target_include_directories(TimerPrioTest PUBLIC include)
+# Link the PingPongOs with the system timer with priority test executable
+target_link_libraries(TimerPrioTest PRIVATE PingPongLib)
 
 # Add the test
 add_test(NAME QueueTests COMMAND QueueTest)
 add_test(NAME TaskTests COMMAND TaskTest TaskMaxTest TaskMaxSeqTest)
 add_test(NAME DispatcherTests COMMAND DispatcherTest)
 add_test(NAME SchedulerTests COMMAND SchedulerTest)
-add_test(NAME TimerTests COMMAND TimerIntTest)
+add_test(NAME TimerTests COMMAND TimerIntTest TimerTest TimerPrioTest)  

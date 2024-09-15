@@ -107,7 +107,7 @@ void __logger(int log_level, const char *file, int line, const char *func,
     output = stderr;
   }
 
-  if (log_level > level) {
+  if (log_level >= level) {
     va_list args;
     va_start(args, fmt);
     logger(log_level, file, line, func, fmt, args);

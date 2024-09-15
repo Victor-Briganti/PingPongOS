@@ -103,3 +103,10 @@ int task_getprio(const task_t *const task);
  * @return 0 if the priority could be adjusted, or 0< otherwise.
  */
 int task_setprio(task_t *task, int prio);
+
+/**
+ * @brief Gets the total execution time of the system.
+ *
+ * @return The total time of the system since execution.
+ */
+unsigned int systime();

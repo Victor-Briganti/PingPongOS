@@ -27,8 +27,9 @@ static task_t *dispatcherTask = NULL;
 static int threadCount = 0;
 
 // Timer Global structures
-struct sigaction action;
-struct itimerval timer;
+static struct sigaction action;
+static struct itimerval timer;
+static unsigned int totalSysTime = 0;
 
 #define TIMER 1000 // 1 ms in microseconds
 
@@ -37,6 +38,13 @@ struct itimerval timer;
 //=============================================================================
 
 static void exec_task_reduce_quantum() {
+  totalSysTime++;
+
+  if (executingTask->current_time) {
+    executingTask->total_time += totalSysTime - executingTask->current_time;
+  }
+  executingTask->current_time = totalSysTime;
+
   if (executingTask->type != USER) {
     return;
   }
@@ -67,7 +75,11 @@ static void dispatcher() {
   }
 
   if (executingTask->status == TASK_FINISH) {
-    log_info("executing task(%d) TASK_FINISH", executingTask->tid);
+    log_info("task(%d) finish. execution time: %d ms, processor time: %d ms, "
+             "%d activations",
+             executingTask->tid, totalSysTime, executingTask->total_time,
+             executingTask->num_calls);
+
     free(executingTask->stack);
     if (executingTask->tid == MAIN_TASK) {
       free(executingTask);
@@ -89,11 +101,16 @@ static void dispatcher() {
     }
 
     if (executingTask->status == TASK_FINISH) {
-      log_info("executing task(%d) TASK_FINISH", executingTask->tid);
+      log_info("task(%d) finish. execution time: %d ms, processor time: %d ms, "
+               "%d activations",
+               executingTask->tid, totalSysTime, executingTask->total_time,
+               executingTask->num_calls);
+
       free(executingTask->stack);
       if (executingTask->tid == MAIN_TASK) {
         free(executingTask);
       }
+
     } else if (executingTask->status == TASK_READY) {
       log_debug("inserting executing task(%d) in ready queue",
                 executingTask->tid);
@@ -110,6 +127,14 @@ static void dispatcher() {
       exit(1);
     }
   }
+
+  log_info("task(%d) finish. execution time: %d ms, processor time: %d ms, "
+           "%d activations",
+           dispatcherTask->tid, totalSysTime, dispatcherTask->total_time,
+           dispatcherTask->num_calls);
+
+  free(dispatcherTask->stack);
+  free(dispatcherTask);
 
   exit(0);
 }
@@ -176,7 +201,7 @@ void ppos_init() {
   // https://en.cppreference.com/w/c/io/setvbuf
   (void)setvbuf(stdout, 0, _IONBF, 0);
 
-  log_set(stderr, 0, LOG_TRACE);
+  log_set(stderr, 0, LOG_INFO);
   ppos_init_tasks();
   ppos_init_timer();
 }
@@ -203,6 +228,9 @@ int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
   task->current_priority = 0;
   task->type = USER;
   task->quantum = TASK_QUANTUM;
+  task->total_time = 0;
+  task->current_time = 0;
+  task->num_calls = 0;
 
   if (threadCount == MAIN_TASK) {
     task->status = TASK_EXEC;
@@ -242,6 +270,7 @@ int task_switch(task_t *task) {
   }
 
   log_debug("(%d)->(%d)", executingTask->tid, task->tid);
+  task->num_calls++;
 
   if (task_manager_remove(readyQueue, task) < 0) {
     log_debug("could not remove task(%d) from ready queue", task->tid);
@@ -276,6 +305,7 @@ int task_id() {
 void task_yield() {
   log_debug("task(%d)", executingTask->tid);
   executingTask->status = TASK_READY;
+  dispatcherTask->num_calls++;
   swapcontext(&(executingTask->context), &(dispatcherTask->context));
 }
 
@@ -317,3 +347,5 @@ int task_setprio(task_t *task, int prio) {
 
   return 0;
 }
+
+unsigned int systime() { return totalSysTime; }

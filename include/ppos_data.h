@@ -8,8 +8,8 @@
  * License: BSD 2
  */
 
-#ifndef PP_TASK_H
-#define PP_TASK_H
+#ifndef PP_DATA_H
+#define PP_DATA_H
 
 #include <ucontext.h>
 
@@ -45,6 +45,9 @@ typedef struct task_t {
                               // because of aging
   task_type type;             // Defines the type of the task executing
   unsigned int quantum;       // Total quantum that the task has to execute
+  unsigned int total_time;    // Total time of execution on CPU
+  unsigned int current_time;  // Current system time of the task execution
+  unsigned int num_calls;     // Number of times the task was dispatched
 } task_t;
 
-#endif // PP_TASK_H
+#endif // PP_DATA_H
