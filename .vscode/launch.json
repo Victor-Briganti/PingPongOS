@@ -36,5 +36,13 @@
             "args": [],
             "cwd": "${workspaceFolder}"
         },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug Wait",
+            "program": "${workspaceFolder}/build/WaitTest",
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

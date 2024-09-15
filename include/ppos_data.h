@@ -15,10 +15,6 @@
 
 #define STACKSIZE 64 * 1024
 
-#define TASK_READY 0
-#define TASK_EXEC 1
-#define TASK_FINISH 2
-
 #define TASK_MAX_PRIO 20
 #define TASK_MIN_PRIO -20
 
@@ -28,6 +24,13 @@
 #define MAIN_TASK 0
 #define DISPATCHER_TASK 1
 
+typedef enum task_state {
+  TASK_READY,
+  TASK_EXEC,
+  TASK_FINISH,
+  TASK_SUSPENDED,
+} task_state;
+
 typedef enum task_type {
   USER,
   SYSTEM,
@@ -35,19 +38,51 @@ typedef enum task_type {
 
 // Structure for the TCB (Task Control Block)
 typedef struct task_t {
-  struct task_t *prev, *next; // Used in the queue_t
-  int tid;                    // id for the task
-  int status;                 // ready, executing, finished, ...
-  ucontext_t context;         // Current context
-  char *stack;                // The stack used by the context
-  int initial_priority;       // The start priority of the task (default is 0)
-  int current_priority;       // The real priority of the task, can be different
-                              // because of aging
-  task_type type;             // Defines the type of the task executing
-  unsigned int quantum;       // Total quantum that the task has to execute
-  unsigned int total_time;    // Total time of execution on CPU
-  unsigned int current_time;  // Current system time of the task execution
-  unsigned int num_calls;     // Number of times the task was dispatched
+  // Used in the queue_t
+  struct task_t *prev, *next;
+
+  // id for the task
+  int tid;
+
+  // ready, executing, finished, ...
+  task_state state;
+
+  // Current context
+  ucontext_t context;
+
+  // The stack used by the context
+  char *stack;
+
+  // The start priority of the task (default is 0)
+  int initial_priority;
+
+  // The real priority of the task.
+  int current_priority;
+
+  // Defines the type of the task executing
+  task_type type;
+
+  // Total quantum that the task has to execute
+  unsigned int quantum;
+
+  // Total time of execution on CPU
+  unsigned int total_time;
+
+  // Current system time of the task execution
+  unsigned int current_time;
+
+  // Number of times the task was dispatched
+  unsigned int num_calls;
+
+  // The exit result of this task
+  int exit_result;
+
+  // Queue of tasks waiting this one to finish executing
+  struct task_t *waiting_queue;
+
+  // Return value of the task waited
+  int waiting_result;
+
 } task_t;
 
 #endif // PP_DATA_H

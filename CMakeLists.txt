@@ -100,9 +100,16 @@ target_include_directories(TimerPrioTest PUBLIC include)
 # Link the PingPongOs with the system timer with priority test executable
 target_link_libraries(TimerPrioTest PRIVATE PingPongLib)
 
+# Define the test executable for waiting a task
+add_executable(WaitTest test/wait/ppwait.c)
+target_include_directories(WaitTest PUBLIC include)
+# Link the PingPongOs with the system timer with priority test executable
+target_link_libraries(WaitTest PRIVATE PingPongLib)
+
 # Add the test
 add_test(NAME QueueTests COMMAND QueueTest)
 add_test(NAME TaskTests COMMAND TaskTest TaskMaxTest TaskMaxSeqTest)
 add_test(NAME DispatcherTests COMMAND DispatcherTest)
 add_test(NAME SchedulerTests COMMAND SchedulerTest)
 add_test(NAME TimerTests COMMAND TimerIntTest TimerTest TimerPrioTest)  
+add_test(NAME WaitTests COMMAND WaitTest)  

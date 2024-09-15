@@ -29,6 +29,13 @@
  */
 void ppos_init();
 
+/**
+ * @brief Gets the total execution time of the system.
+ *
+ * @return The total time of the system since execution.
+ */
+unsigned int systime();
+
 //=============================================================================
 // Task Management
 //=============================================================================
@@ -105,8 +112,33 @@ int task_getprio(const task_t *const task);
 int task_setprio(task_t *task, int prio);
 
 /**
- * @brief Gets the total execution time of the system.
+ * @brief Waits for a task to complete.
  *
- * @return The total time of the system since execution.
+ * Suspend the current executing task until the task passed as an argument has
+ * executed. After that the task is put in the ready queue again.
+ * More than one task can wait for the task being passed as an argument.
+ *
+ * @param task The pointer for the task being waited.
+ *
+ * @return The exit value of the task being waited.
  */
-unsigned int systime();
+int task_wait(task_t *task);
+
+/**
+ * @brief Suspends the current task.
+ *
+ * Place the current task into the suspending queue.
+ *
+ * @param queue Suspending queue that is going to receive the suspended task.
+ */
+void task_suspend(task_t **queue);
+
+/**
+ * @brief Awake the suspended task.
+ *
+ * Removes the task passed of the queue. And insert it into the ready queue.
+ *
+ * @param task Pointer for the task that needs to be awake.
+ * @param queue Pointer for the queue of suspended tasks.
+ */
+void task_awake(task_t *task, task_t **queue);

@@ -11,6 +11,7 @@
 #include "ppos.h"
 #include "adt/pptask_manager.h"
 #include "debug/log.h"
+#include "lib/queue.h"
 #include "ppos_data.h"
 
 #include <signal.h>
@@ -37,6 +38,14 @@ static unsigned int totalSysTime = 0;
 // Scheduler Private Functions
 //=============================================================================
 
+/**
+ * @brief Timer interrupt function of the OS
+ *
+ * The main function of this task is to keep up with the total time of execution
+ * of the system, and to manage the total quantum that the current executing
+ * task already has consumed of execution, if the executing task has already
+ * consumed all its quantum yield it.
+ */
 static void exec_task_reduce_quantum() {
   totalSysTime++;
 
@@ -55,6 +64,13 @@ static void exec_task_reduce_quantum() {
   }
 }
 
+/**
+ * @brief Scheduler function of the OS.
+ *
+ * This function is responsible into choosing the next task to be executed. And
+ * is also responsible into set the priority value of the other tasks in the
+ * queue.
+ */
 static task_t *scheduler() {
   if (readyQueue->count) {
     task_t *task = readyQueue->taskQueue;
@@ -68,13 +84,19 @@ static task_t *scheduler() {
   return NULL;
 }
 
+/**
+ * @brief Dispatcher task of the OS.
+ *
+ * This function is responsible to add or remove tasks into the queues and to
+ * execute the task that the scheduler has choose.
+ */
 static void dispatcher() {
   if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
     log_error("could not be removed from ready queue");
     exit(1);
   }
 
-  if (executingTask->status == TASK_FINISH) {
+  if (executingTask->state == TASK_FINISH) {
     log_info("task(%d) finish. execution time: %d ms, processor time: %d ms, "
              "%d activations",
              executingTask->tid, totalSysTime, executingTask->total_time,
@@ -83,6 +105,15 @@ static void dispatcher() {
     free(executingTask->stack);
     if (executingTask->tid == MAIN_TASK) {
       free(executingTask);
+    }
+  } else if (executingTask->state == TASK_READY) {
+    log_debug("inserting executing task(%d) in ready queue",
+              executingTask->tid);
+
+    if (task_manager_insert(readyQueue, executingTask) < 0) {
+      log_error("failed to insert executing task(%d) in ready queue",
+                executingTask->tid);
+      exit(1);
     }
   }
 
@@ -100,18 +131,32 @@ static void dispatcher() {
       exit(1);
     }
 
-    if (executingTask->status == TASK_FINISH) {
+    if (executingTask->state == TASK_FINISH) {
       log_info("task(%d) finish. execution time: %d ms, processor time: %d ms, "
                "%d activations",
                executingTask->tid, totalSysTime, executingTask->total_time,
                executingTask->num_calls);
+
+      task_t *aux = executingTask->waiting_queue;
+      while (aux) {
+        task_awake(aux, &executingTask->waiting_queue);
+        aux->waiting_result = executingTask->exit_result;
+
+        if (task_manager_insert(readyQueue, aux) < 0) {
+          log_error("failed to insert waiting task(%d) in ready queue",
+                    executingTask->tid);
+          exit(1);
+        }
+
+        aux = executingTask->waiting_queue;
+      }
 
       free(executingTask->stack);
       if (executingTask->tid == MAIN_TASK) {
         free(executingTask);
       }
 
-    } else if (executingTask->status == TASK_READY) {
+    } else if (executingTask->state == TASK_READY) {
       log_debug("inserting executing task(%d) in ready queue",
                 executingTask->tid);
 
@@ -139,6 +184,13 @@ static void dispatcher() {
   exit(0);
 }
 
+/**
+ * @brief Initializes the task structures of the OS.
+ *
+ * Initialize the manager of the queues. Starts the current task
+ * (the one that called this function), as the main task, and initialized the
+ * dispatcher task.
+ */
 static void ppos_init_tasks() {
   readyQueue = task_manager_create();
   if (readyQueue == NULL) {
@@ -171,6 +223,9 @@ static void ppos_init_tasks() {
   dispatcherTask->type = SYSTEM;
 }
 
+/**
+ * @brief Initializes a timer interrupt of the OS.
+ */
 static void ppos_init_timer() {
   action.sa_handler = exec_task_reduce_quantum;
   sigemptyset(&action.sa_mask);
@@ -201,10 +256,12 @@ void ppos_init() {
   // https://en.cppreference.com/w/c/io/setvbuf
   (void)setvbuf(stdout, 0, _IONBF, 0);
 
-  log_set(stderr, 0, LOG_INFO);
+  log_set(stderr, 0, LOG_TRACE);
   ppos_init_tasks();
   ppos_init_timer();
 }
+
+unsigned int systime() { return totalSysTime; }
 
 //=============================================================================
 // Task Management
@@ -231,13 +288,16 @@ int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
   task->total_time = 0;
   task->current_time = 0;
   task->num_calls = 0;
+  task->exit_result = 0;
+  task->waiting_queue = NULL;
+  task->waiting_result = 0;
 
   if (threadCount == MAIN_TASK) {
-    task->status = TASK_EXEC;
+    task->state = TASK_EXEC;
     task->stack = NULL; // Main task does not need to allocate a stack
     getcontext(&(task->context));
   } else {
-    task->status = TASK_READY;
+    task->state = TASK_READY;
 
     // Initialize the context structure and its stack
     getcontext(&(task->context));
@@ -284,8 +344,8 @@ int task_switch(task_t *task) {
 
   task_t *temp = executingTask;
   executingTask = task;
-  task->status = TASK_EXEC;
-  temp->status = TASK_READY;
+  task->state = TASK_EXEC;
+  temp->state = TASK_READY;
 
   swapcontext(&(temp->context), &(executingTask->context));
   return 0;
@@ -293,7 +353,8 @@ int task_switch(task_t *task) {
 
 void task_exit(int exit_code) {
   log_debug("task(%d)", executingTask->tid);
-  executingTask->status = TASK_FINISH;
+  executingTask->state = TASK_FINISH;
+  executingTask->exit_result = exit_code;
   swapcontext(&(executingTask->context), &(dispatcherTask->context));
 }
 
@@ -304,7 +365,7 @@ int task_id() {
 
 void task_yield() {
   log_debug("task(%d)", executingTask->tid);
-  executingTask->status = TASK_READY;
+  executingTask->state = TASK_READY;
   dispatcherTask->num_calls++;
   swapcontext(&(executingTask->context), &(dispatcherTask->context));
 }
@@ -348,4 +409,48 @@ int task_setprio(task_t *task, int prio) {
   return 0;
 }
 
-unsigned int systime() { return totalSysTime; }
+int task_wait(task_t *task) {
+  if (task == NULL) {
+    log_error("receive a NULL task");
+    return -1;
+  }
+
+  log_debug("task(%d) waiting task(%d)", executingTask->tid, task->tid);
+  task_suspend(&(task->waiting_queue));
+  return executingTask->waiting_result;
+}
+
+void task_suspend(task_t **queue) {
+  executingTask->state = TASK_SUSPENDED;
+
+  log_debug("suspending task(%d)", executingTask->tid);
+  if (queue_append((queue_t **)queue, (queue_t *)executingTask) < 0) {
+    log_error("could not add task(%d) to the suspend queue",
+              executingTask->tid);
+    exit(1);
+  }
+
+  dispatcherTask->num_calls++;
+  swapcontext(&(executingTask->context), &(dispatcherTask->context));
+}
+
+void task_awake(task_t *task, task_t **queue) {
+  if (task == NULL) {
+    log_error("received a NULL task");
+    exit(1);
+  }
+
+  if (queue == NULL) {
+    log_error("received a NULL queue");
+    exit(1);
+  }
+
+  int res = queue_remove((queue_t **)queue, (queue_t *)task);
+  if (res < 0) {
+    log_error("could not remove task(%d) of the suspend queue %d", task->tid,
+              res);
+    exit(1);
+  }
+
+  task->state = TASK_READY;
+}
