@@ -415,6 +415,11 @@ int task_wait(task_t *task) {
     return -1;
   }
 
+  if (task->state == TASK_FINISH) {
+    log_error("task(%d) already finished", task->tid);
+    return -1;
+  }
+
   log_debug("task(%d) waiting task(%d)", executingTask->tid, task->tid);
   task_suspend(&(task->waiting_queue));
   return executingTask->waiting_result;
