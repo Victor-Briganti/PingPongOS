@@ -32,7 +32,7 @@ static unsigned int totalSysTime = 0;
 #define TIMER 1000 // 1 ms in microseconds
 
 //=============================================================================
-// Scheduler Private Functions
+// Timer Private Functions
 //=============================================================================
 
 /**
@@ -61,9 +61,56 @@ static void __time_tick() {
   }
 }
 
+/**
+ * @brief Initializes a timer interrupt of the OS.
+ */
+static void __ppos_init_timer() {
+  static struct sigaction action;
+  static struct itimerval timer;
+
+  action.sa_handler = __time_tick;
+  sigemptyset(&action.sa_mask);
+  action.sa_flags = 0;
+
+  if (sigaction(SIGALRM, &action, 0) < 0) {
+    log_error("erro no sigaction");
+    exit(1);
+  }
+
+  timer.it_value.tv_usec = TIMER;
+  timer.it_value.tv_sec = 0;
+  timer.it_interval.tv_usec = TIMER;
+  timer.it_interval.tv_sec = 0;
+
+  if (setitimer(ITIMER_REAL, &timer, 0) < 0) {
+    log_error("erro no setitimer");
+    exit(1);
+  }
+}
+
 //=============================================================================
 // Scheduler Private Functions
 //=============================================================================
+
+#define PRIORITY_AGING (-1)
+
+/**
+ * @brief Function to age the priorities of the queue
+ *
+ * This function is used with the map function of the queue. And is used to age
+ * the priority of everyone in the queue.
+ */
+static void __aging(void *ptr) {
+  task_t *task = (task_t *)ptr;
+
+  if (task == NULL) {
+    return;
+  }
+
+  if (task->current_priority > TASK_MIN_PRIO) {
+    task->current_priority += PRIORITY_AGING;
+  }
+}
 
 /**
  * @brief Scheduler function of the OS.
@@ -75,7 +122,7 @@ static void __time_tick() {
 static task_t *scheduler() {
   if (readyQueue->count) {
     task_t *task = readyQueue->taskQueue;
-    task_manager_aging(readyQueue);
+    task_manager_map(readyQueue, __aging);
 
     // Reset the priority of the task
     task->current_priority = task->initial_priority;
@@ -198,8 +245,24 @@ static void dispatcher() {
 }
 
 //=============================================================================
-// General Private Functions
+// Queue Managers Private Functions
 //=============================================================================
+
+/**
+ * @brief Compare the priority of two tasks
+ *
+ * @param ptr1 Pointer for the element that is going to be compared
+ * @param ptr2 Pointer for the element in the queue
+ *
+ * @return 0 if equal, 0< if elem has a higher priority, 0> if elem has a lower
+ * priority.
+ */
+static int __task_prio_comp(const void *ptr1, const void *ptr2) {
+  task_t *elem = (task_t *)ptr1;
+  task_t *queue = (task_t *)ptr2;
+
+  return elem->initial_priority - queue->current_priority;
+}
 
 /**
  * @brief Initializes the task structures of the OS.
@@ -209,7 +272,7 @@ static void dispatcher() {
  * dispatcher task.
  */
 static void __ppos_init_tasks() {
-  readyQueue = task_manager_create();
+  readyQueue = task_manager_create("ready", __task_prio_comp);
   if (readyQueue == NULL) {
     log_error("couldn't initiate the ready queue");
     exit(1);
@@ -240,35 +303,8 @@ static void __ppos_init_tasks() {
   dispatcherTask->type = SYSTEM;
 }
 
-/**
- * @brief Initializes a timer interrupt of the OS.
- */
-static void __ppos_init_timer() {
-  static struct sigaction action;
-  static struct itimerval timer;
-
-  action.sa_handler = __time_tick;
-  sigemptyset(&action.sa_mask);
-  action.sa_flags = 0;
-
-  if (sigaction(SIGALRM, &action, 0) < 0) {
-    log_error("erro no sigaction");
-    exit(1);
-  }
-
-  timer.it_value.tv_usec = TIMER;
-  timer.it_value.tv_sec = 0;
-  timer.it_interval.tv_usec = TIMER;
-  timer.it_interval.tv_sec = 0;
-
-  if (setitimer(ITIMER_REAL, &timer, 0) < 0) {
-    log_error("erro no setitimer");
-    exit(1);
-  }
-}
-
 //=============================================================================
-// General Functions
+// General Public Functions
 //=============================================================================
 
 void ppos_init() {
@@ -285,7 +321,7 @@ void ppos_init() {
 unsigned int systime() { return totalSysTime; }
 
 //=============================================================================
-// Task Management
+// Task Public Management
 //=============================================================================
 
 int task_init(task_t *task, void (*start_routine)(void *), void *arg) {

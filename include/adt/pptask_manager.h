@@ -14,7 +14,9 @@
 #include "ppos_data.h"
 
 typedef struct {
+  char *name;
   task_t *taskQueue;
+  int (*comp_func)(const void *ptr1, const void *ptr2);
   int count;
 } TaskManager;
 
@@ -23,9 +25,18 @@ typedef struct {
  *
  * Allocates a new task manager structure and returns it.
  *
+ * @param name Name used to identify this manager (debug purpose)
+ * @param comp_func Function used in the insertion, to insert the tasks in
+ * order. This function needs to be like the following:
+ *  - 0> ptr1 should be placed after ptr2.
+ *  - 0< ptr1 should be placed before ptr2.
+ *  - 0  ptr1 and ptr2 are equal.
+ *
  * @return The new allocated structure, or NULL if something went wrong
  */
-TaskManager *task_manager_create();
+TaskManager *task_manager_create(char *name,
+                                 int (*comp_func)(const void *ptr1,
+                                                  const void *ptr2));
 
 /**
  * @brief Deletes a Task Manager structure
@@ -60,14 +71,24 @@ int task_manager_insert(TaskManager *manager, task_t *task);
 int task_manager_remove(TaskManager *manager, task_t *task);
 
 /**
- * @brief Age the priority of every task that is in the queue.
+ * @brief Maps a function through the queue
  *
- * The process of aging is basically changing the priority of everyone in the
- * queue to a higher priority.
+ * Applies the function passed in every element of the list
  *
  * @param manager Pointer for the Task Manager
+ * @param map_func Pointer for function that is going to be applied
  */
-void task_manager_aging(TaskManager *manager);
+void task_manager_map(TaskManager *manager, void (*map_func)(void *ptr));
+
+/**
+ * @brief Searches for a task in the given queue
+ *
+ * @param manager Pointer for the Task Manager
+ * @param task Pointer for task being searched
+ *
+ * @return 0 if found, -1 otherwise
+ */
+int task_manager_search(TaskManager *manager, task_t *task);
 
 #ifdef DEBUG
 /**

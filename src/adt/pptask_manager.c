@@ -24,8 +24,7 @@
 #include "ppos_data.h"
 
 #include <stdlib.h>
-
-#define PRIORITY_AGING -1
+#include <string.h>
 
 //=============================================================================
 // Private Functions
@@ -48,35 +47,43 @@ static void qtask_print(void *ptr) {
 }
 #endif // DEBUG
 
-static void qtask_aging(void *ptr) {
-  task_t *task = (task_t *)ptr;
-
-  if (task == NULL) {
-    return;
-  }
-
-  if (task->current_priority > TASK_MIN_PRIO) {
-    task->current_priority += PRIORITY_AGING;
-  }
-}
-
-static int qtask_compare(const void *ptr1, const void *ptr2) {
-  task_t *elem = (task_t *)ptr1;
-  task_t *queue = (task_t *)ptr2;
-
-  return elem->initial_priority - queue->current_priority;
-}
-
 //=============================================================================
 // Public Functions
 //=============================================================================
 
-TaskManager *task_manager_create() {
+TaskManager *task_manager_create(char *name,
+                                 int (*comp_func)(const void *ptr1,
+                                                  const void *ptr2)) {
+  if (!name) {
+    log_error("received a NULL name");
+    return NULL;
+  }
+
+  if (!comp_func) {
+    log_error("received a NULL name");
+    return NULL;
+  }
+
   TaskManager *manager = calloc(1, sizeof(TaskManager));
+  if (!manager) {
+    log_error("could not allocate the manager");
+    return NULL;
+  }
+
+  manager->name = strdup(name);
+  if (!manager->name) {
+    log_error("could not assign a name to the manager");
+    return NULL;
+  }
+
+  manager->comp_func = comp_func;
   return manager;
 }
 
-void task_manager_delete(TaskManager *manager) { free(manager); }
+void task_manager_delete(TaskManager *manager) {
+  free(manager->name);
+  free(manager);
+}
 
 int task_manager_insert(TaskManager *manager, task_t *task) {
   if (manager == NULL) {
@@ -92,7 +99,7 @@ int task_manager_insert(TaskManager *manager, task_t *task) {
   log_debug("inserting task(%d) in queue", task->tid);
   task_manager_print(manager);
   if (queue_insert_inorder((queue_t **)&(manager->taskQueue), (queue_t *)task,
-                           qtask_compare)) {
+                           manager->comp_func)) {
     log_error("could not insert task(%d) in queue", task->tid);
     return -1;
   }
@@ -113,7 +120,7 @@ int task_manager_remove(TaskManager *manager, task_t *task) {
     return -1;
   }
 
-  if (manager->count == 0) {
+  if (!manager->taskQueue) {
     log_debug("queue is empty");
     return -1;
   }
@@ -131,19 +138,52 @@ int task_manager_remove(TaskManager *manager, task_t *task) {
   return 0;
 }
 
-void task_manager_aging(TaskManager *manager) {
+void task_manager_map(TaskManager *manager, void (*map_func)(void *ptr)) {
   if (manager == NULL) {
     log_error("received a NULL manager");
     return;
   }
 
-  if (manager->count == 0) {
+  if (map_func == NULL) {
+    log_error("received a NULL function");
+    return;
+  }
+
+  if (!manager->taskQueue) {
     log_debug("queue is empty");
     return;
   }
 
-  log_debug("aging the queue");
-  queue_map((queue_t *)(manager->taskQueue), qtask_aging);
+  log_debug("mapping the queue");
+  queue_map((queue_t *)(manager->taskQueue), map_func);
+}
+
+int task_manager_search(TaskManager *manager, task_t *task) {
+  if (manager == NULL) {
+    log_error("received a NULL manager");
+    return -1;
+  }
+
+  if (task == NULL) {
+    log_error("received a NULL task");
+    return -1;
+  }
+
+  if (!manager->taskQueue) {
+    log_debug("queue is empty");
+    return -1;
+  }
+
+  task_t *aux = manager->taskQueue;
+  do {
+    if (aux == task) {
+      return 0;
+    }
+
+    aux = aux->next;
+  } while (aux != manager->taskQueue);
+
+  return -1;
 }
 
 #ifdef DEBUG
@@ -153,11 +193,12 @@ void task_manager_print(TaskManager *manager) {
     return;
   }
 
-  if (manager->count == 0) {
-    (void)fprintf(stderr, "empty queue\n");
+  if (!manager->taskQueue) {
+    (void)fprintf(stderr, "%s: empty\n", manager->name);
     return;
   }
 
+  (void)fprintf(stderr, "%s: ", manager->name);
   queue_map((queue_t *)(manager->taskQueue), qtask_print);
   (void)fprintf(stderr, "\n");
 }

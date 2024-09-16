@@ -13,16 +13,16 @@
 
 #include <ucontext.h>
 
-#define STACKSIZE 64 * 1024
+#define STACKSIZE (64 * 1024)
 
-#define TASK_MAX_PRIO 20
-#define TASK_MIN_PRIO -20
+#define TASK_MAX_PRIO (20)
+#define TASK_MIN_PRIO (-20)
 
-#define TASK_QUANTUM 20 // In milliseconds
+#define TASK_QUANTUM (20) // In milliseconds
 
 // Reserved IDs for special Tasks
-#define MAIN_TASK 0
-#define DISPATCHER_TASK 1
+#define MAIN_TASK (0)
+#define DISPATCHER_TASK (1)
 
 typedef enum task_state {
   TASK_READY,
