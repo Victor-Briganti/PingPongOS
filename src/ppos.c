@@ -25,11 +25,8 @@
 static TaskManager *readyQueue = NULL;
 static task_t *executingTask = NULL;
 static task_t *dispatcherTask = NULL;
-static int threadCount = 0;
 
-// Timer Global structures
-static struct sigaction action;
-static struct itimerval timer;
+// Timer Global structur
 static unsigned int totalSysTime = 0;
 
 #define TIMER 1000 // 1 ms in microseconds
@@ -247,6 +244,9 @@ static void __ppos_init_tasks() {
  * @brief Initializes a timer interrupt of the OS.
  */
 static void __ppos_init_timer() {
+  static struct sigaction action;
+  static struct itimerval timer;
+
   action.sa_handler = __time_tick;
   sigemptyset(&action.sa_mask);
   action.sa_flags = 0;
@@ -277,6 +277,7 @@ void ppos_init() {
   (void)setvbuf(stdout, 0, _IONBF, 0);
 
   log_set(stderr, 0, LOG_TRACE);
+
   __ppos_init_tasks();
   __ppos_init_timer();
 }
@@ -288,6 +289,8 @@ unsigned int systime() { return totalSysTime; }
 //=============================================================================
 
 int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
+  static int threadCount = 0;
+
   if (task == NULL) {
     log_error("received a task == NULL");
     return -1;
