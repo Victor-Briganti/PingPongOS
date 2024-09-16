@@ -41,6 +41,7 @@ static void qtask_print(void *ptr) {
 
   if (task == NULL) {
     (void)fprintf(stderr, "(nil) ");
+    return;
   }
 
   (void)fprintf(stderr, "%d{%d} ", task->tid, task->current_priority);
@@ -97,13 +98,13 @@ int task_manager_insert(TaskManager *manager, task_t *task) {
   }
 
   log_debug("inserting task(%d) in queue", task->tid);
-  task_manager_print(manager);
+  // task_manager_print(manager);
   if (queue_insert_inorder((queue_t **)&(manager->taskQueue), (queue_t *)task,
                            manager->comp_func)) {
     log_error("could not insert task(%d) in queue", task->tid);
     return -1;
   }
-  task_manager_print(manager);
+  // task_manager_print(manager);
 
   manager->count++;
   return 0;
@@ -126,12 +127,12 @@ int task_manager_remove(TaskManager *manager, task_t *task) {
   }
 
   log_debug("removing task(%d) of the queue %p", task->tid);
-  task_manager_print(manager);
+  // task_manager_print(manager);
   if (queue_remove((queue_t **)&(manager->taskQueue), (queue_t *)task) < 0) {
     log_error("could not remove task(%d) of the queue", task->tid);
     return -1;
   }
-  task_manager_print(manager);
+  // task_manager_print(manager);
 
   task->current_priority = task->initial_priority;
   manager->count--;

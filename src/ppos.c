@@ -51,7 +51,7 @@ static void __time_tick() {
   }
   executingTask->current_time = totalSysTime;
 
-  if (executingTask->type != USER) {
+  if (executingTask->type == SYSTEM) {
     return;
   }
 
@@ -185,44 +185,45 @@ static void dispatcher() {
       exit(1);
     }
 
-    switch (executingTask->state) {
+    task_t *currentTask = executingTask;
+    dispatcherTask->state = TASK_EXEC;
+    executingTask = dispatcherTask;
+
+    switch (currentTask->state) {
     case TASK_SUSPENDED:
       break;
     case TASK_READY:
-      if (task_manager_insert(readyQueue, executingTask) < 0) {
+      if (task_manager_insert(readyQueue, currentTask) < 0) {
         log_error("failed to insert executing task(%d) in ready queue",
-                  executingTask->tid);
+                  currentTask->tid);
         exit(1);
       }
       break;
     case TASK_FINISH:
-      __wakeup(&executingTask->waiting_queue, executingTask->exit_result);
+      __wakeup(&currentTask->waiting_queue, currentTask->exit_result);
 
       log_info("task(%d) finish. execution time: %d ms, processor time: %d ms, "
                "%d activations",
-               executingTask->tid, totalSysTime, executingTask->total_time,
-               executingTask->num_calls);
+               currentTask->tid, totalSysTime, currentTask->total_time,
+               currentTask->num_calls);
 
-      free(executingTask->stack);
-      if (executingTask->tid == MAIN_TASK) {
-        free(executingTask);
+      free(currentTask->stack);
+      if (currentTask->tid == MAIN_TASK) {
+        free(currentTask);
       }
       break;
     case TASK_EXEC:
-      executingTask->state = TASK_READY;
-      if (task_manager_insert(readyQueue, executingTask) < 0) {
+      currentTask->state = TASK_READY;
+      if (task_manager_insert(readyQueue, currentTask) < 0) {
         log_error("failed to insert executing task(%d) in ready queue",
-                  executingTask->tid);
+                  currentTask->tid);
         exit(1);
       }
       break;
     default:
-      log_error("invalid state(%d))", executingTask->state);
+      log_error("invalid state(%d))", currentTask->state);
       exit(1);
     }
-
-    dispatcherTask->state = TASK_EXEC;
-    executingTask = dispatcherTask;
 
     task_t *next = scheduler();
     if (next == NULL) {
