@@ -46,7 +46,7 @@ static unsigned int totalSysTime = 0;
  * task already has consumed of execution, if the executing task has already
  * consumed all its quantum yield it.
  */
-static void exec_task_reduce_quantum() {
+static void __time_tick() {
   totalSysTime++;
 
   if (executingTask->current_time) {
@@ -64,6 +64,10 @@ static void exec_task_reduce_quantum() {
   }
 }
 
+//=============================================================================
+// Scheduler Private Functions
+//=============================================================================
+
 /**
  * @brief Scheduler function of the OS.
  *
@@ -78,10 +82,50 @@ static task_t *scheduler() {
 
     // Reset the priority of the task
     task->current_priority = task->initial_priority;
+
+    // Reset the quantum of the task
+    task->quantum = TASK_QUANTUM;
     return task;
   }
 
   return NULL;
+}
+
+//=============================================================================
+// Dispatcher Private Functions
+//=============================================================================
+
+/**
+ * @brief Wake up all the tasks in the queue.
+ *
+ * This function is responsible for getting all the tasks that are suspended and
+ * put then into the ready queue.
+ *
+ * @param waiting_queue Pointer for the queue with all the tasks to be awaken
+ * @param exit_code exit code of the task that was waited
+ */
+static void __wakeup(task_t **waiting_queue, int exit_code) {
+  task_t *aux = *waiting_queue;
+  while (aux) {
+    task_awake(aux, waiting_queue);
+    aux->waiting_result = exit_code;
+
+    aux->state = TASK_READY;
+    if (task_manager_insert(readyQueue, aux) < 0) {
+      log_error("failed to insert waiting task(%d) in ready queue", aux->tid);
+      exit(1);
+    }
+
+    aux = *waiting_queue;
+  }
+}
+
+/**
+ * @brief Wrapper for swapping context with the dispatcher
+ */
+static void __context_swap_dispatcher() {
+  dispatcherTask->num_calls++;
+  swapcontext(&(executingTask->context), &(dispatcherTask->context));
 }
 
 /**
@@ -91,87 +135,59 @@ static task_t *scheduler() {
  * execute the task that the scheduler has choose.
  */
 static void dispatcher() {
-  if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
-    log_error("could not be removed from ready queue");
-    exit(1);
-  }
-
-  if (executingTask->state == TASK_FINISH) {
-    log_info("task(%d) finish. execution time: %d ms, processor time: %d ms, "
-             "%d activations",
-             executingTask->tid, totalSysTime, executingTask->total_time,
-             executingTask->num_calls);
-
-    free(executingTask->stack);
-    if (executingTask->tid == MAIN_TASK) {
-      free(executingTask);
-    }
-  } else if (executingTask->state == TASK_READY) {
-    log_debug("inserting executing task(%d) in ready queue",
-              executingTask->tid);
-
-    if (task_manager_insert(readyQueue, executingTask) < 0) {
-      log_error("failed to insert executing task(%d) in ready queue",
-                executingTask->tid);
-      exit(1);
-    }
-  }
-
-  while (readyQueue->count) {
-    executingTask = dispatcherTask;
-    task_t *next = scheduler();
-    if (next == NULL) {
-      log_error("next task(nil)");
+  do {
+    if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
+      log_error("could not be removed from ready queue");
       exit(1);
     }
 
-    next->quantum = TASK_QUANTUM;
-    if (task_switch(next) < 0) {
-      log_error("could not execute task(%d)", next->tid);
-      exit(1);
-    }
-
-    if (executingTask->state == TASK_FINISH) {
-      log_info("task(%d) finish. execution time: %d ms, processor time: %d ms, "
-               "%d activations",
-               executingTask->tid, totalSysTime, executingTask->total_time,
-               executingTask->num_calls);
-
-      task_t *aux = executingTask->waiting_queue;
-      while (aux) {
-        task_awake(aux, &executingTask->waiting_queue);
-        aux->waiting_result = executingTask->exit_result;
-
-        if (task_manager_insert(readyQueue, aux) < 0) {
-          log_error("failed to insert waiting task(%d) in ready queue",
-                    executingTask->tid);
-          exit(1);
-        }
-
-        aux = executingTask->waiting_queue;
-      }
-
-      free(executingTask->stack);
-      if (executingTask->tid == MAIN_TASK) {
-        free(executingTask);
-      }
-
-    } else if (executingTask->state == TASK_READY) {
-      log_debug("inserting executing task(%d) in ready queue",
-                executingTask->tid);
-
+    switch (executingTask->state) {
+    case TASK_SUSPENDED:
+      break;
+    case TASK_READY:
       if (task_manager_insert(readyQueue, executingTask) < 0) {
         log_error("failed to insert executing task(%d) in ready queue",
                   executingTask->tid);
         exit(1);
       }
-    }
+      break;
+    case TASK_FINISH:
+      __wakeup(&executingTask->waiting_queue, executingTask->exit_result);
 
-    if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
-      log_error("could not be removed from ready queue");
+      log_info("task(%d) finish. execution time: %d ms, processor time: %d ms, "
+               "%d activations",
+               executingTask->tid, totalSysTime, executingTask->total_time,
+               executingTask->num_calls);
+
+      free(executingTask->stack);
+      if (executingTask->tid == MAIN_TASK) {
+        free(executingTask);
+      }
+      break;
+    case TASK_EXEC:
+      executingTask->state = TASK_READY;
+      if (task_manager_insert(readyQueue, executingTask) < 0) {
+        log_error("failed to insert executing task(%d) in ready queue",
+                  executingTask->tid);
+        exit(1);
+      }
+      break;
+    default:
+      log_error("invalid state(%d))", executingTask->state);
       exit(1);
     }
-  }
+
+    dispatcherTask->state = TASK_EXEC;
+    executingTask = dispatcherTask;
+
+    task_t *next = scheduler();
+    if (next == NULL) {
+      log_debug("next task(nil)");
+      continue;
+    }
+
+    task_switch(next);
+  } while (readyQueue->count);
 
   log_info("task(%d) finish. execution time: %d ms, processor time: %d ms, "
            "%d activations",
@@ -184,6 +200,10 @@ static void dispatcher() {
   exit(0);
 }
 
+//=============================================================================
+// General Private Functions
+//=============================================================================
+
 /**
  * @brief Initializes the task structures of the OS.
  *
@@ -191,7 +211,7 @@ static void dispatcher() {
  * (the one that called this function), as the main task, and initialized the
  * dispatcher task.
  */
-static void ppos_init_tasks() {
+static void __ppos_init_tasks() {
   readyQueue = task_manager_create();
   if (readyQueue == NULL) {
     log_error("couldn't initiate the ready queue");
@@ -226,8 +246,8 @@ static void ppos_init_tasks() {
 /**
  * @brief Initializes a timer interrupt of the OS.
  */
-static void ppos_init_timer() {
-  action.sa_handler = exec_task_reduce_quantum;
+static void __ppos_init_timer() {
+  action.sa_handler = __time_tick;
   sigemptyset(&action.sa_mask);
   action.sa_flags = 0;
 
@@ -257,8 +277,8 @@ void ppos_init() {
   (void)setvbuf(stdout, 0, _IONBF, 0);
 
   log_set(stderr, 0, LOG_TRACE);
-  ppos_init_tasks();
-  ppos_init_timer();
+  __ppos_init_tasks();
+  __ppos_init_timer();
 }
 
 unsigned int systime() { return totalSysTime; }
@@ -366,8 +386,7 @@ int task_id() {
 void task_yield() {
   log_debug("task(%d)", executingTask->tid);
   executingTask->state = TASK_READY;
-  dispatcherTask->num_calls++;
-  swapcontext(&(executingTask->context), &(dispatcherTask->context));
+  __context_swap_dispatcher();
 }
 
 int task_getprio(const task_t *const task) {
@@ -394,6 +413,7 @@ int task_setprio(task_t *task, int prio) {
   aux->current_priority = prio - diffPriority;
   aux->initial_priority = prio;
 
+  // Reinsert the task into the queue with its new priority
   if (aux != executingTask) {
     if (task_manager_remove(readyQueue, aux) < 0) {
       log_debug("could not remove task(%d) from ready queue", aux->tid);
@@ -435,8 +455,7 @@ void task_suspend(task_t **queue) {
     exit(1);
   }
 
-  dispatcherTask->num_calls++;
-  swapcontext(&(executingTask->context), &(dispatcherTask->context));
+  __context_swap_dispatcher();
 }
 
 void task_awake(task_t *task, task_t **queue) {
@@ -450,10 +469,8 @@ void task_awake(task_t *task, task_t **queue) {
     exit(1);
   }
 
-  int res = queue_remove((queue_t **)queue, (queue_t *)task);
-  if (res < 0) {
-    log_error("could not remove task(%d) of the suspend queue %d", task->tid,
-              res);
+  if (queue_remove((queue_t **)queue, (queue_t *)task) < 0) {
+    log_error("could not awake task(%d)", task->tid);
     exit(1);
   }
 
