@@ -47,7 +47,7 @@ target_include_directories(QueueTest PUBLIC include)
 target_link_libraries(QueueTest PRIVATE QueueLib)
 
 # Define the ppos library
-add_library(PingPongLib STATIC src/ppos.c)
+add_library(PingPongLib STATIC src/ppos_core.c)
 target_include_directories(PingPongLib PUBLIC include)
 # Link the queue library with the PingPongLib
 target_link_libraries(PingPongLib PUBLIC QueueLib LogLib TaskADT)
