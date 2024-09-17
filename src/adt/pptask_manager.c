@@ -97,11 +97,12 @@ int task_manager_insert(TaskManager *manager, task_t *task) {
     return -1;
   }
 
-  log_debug("inserting task(%d) in queue", task->tid);
+  log_debug("inserting task(%d) in queue %s", task->tid, manager->name);
   // task_manager_print(manager);
   if (queue_insert_inorder((queue_t **)&(manager->taskQueue), (queue_t *)task,
                            manager->comp_func)) {
-    log_error("could not insert task(%d) in queue", task->tid);
+    log_error("could not insert task(%d) in queue %s", task->tid,
+              manager->name);
     return -1;
   }
   // task_manager_print(manager);
@@ -126,10 +127,11 @@ int task_manager_remove(TaskManager *manager, task_t *task) {
     return -1;
   }
 
-  log_debug("removing task(%d) of the queue %p", task->tid);
+  log_debug("removing task(%d) of the queue %s", task->tid, manager->name);
   // task_manager_print(manager);
   if (queue_remove((queue_t **)&(manager->taskQueue), (queue_t *)task) < 0) {
-    log_error("could not remove task(%d) of the queue", task->tid);
+    log_error("could not remove task(%d) of the queue %s", task->tid,
+              manager->name);
     return -1;
   }
   // task_manager_print(manager);

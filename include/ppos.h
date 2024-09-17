@@ -142,3 +142,14 @@ void task_suspend(task_t **queue);
  * @param queue Pointer for the queue of suspended tasks.
  */
 void task_awake(task_t *task, task_t **queue);
+
+/**
+ * @brief Make the current task sleep.
+ *
+ * Yields the current task and place it in the sleep queue. Where its going to
+ * sleep the specified time.
+ *
+ * @param task Pointer for the task that needs to be awake.
+ * @param queue Pointer for the queue of suspended tasks.
+ */
+void task_sleep(int time);

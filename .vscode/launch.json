@@ -44,5 +44,13 @@
             "args": [],
             "cwd": "${workspaceFolder}"
         },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug Sleep",
+            "program": "${workspaceFolder}/build/SleepTest",
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

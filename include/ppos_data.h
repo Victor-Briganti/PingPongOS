@@ -71,6 +71,9 @@ typedef struct task_t {
   // Current system time of the task execution
   unsigned int current_time;
 
+  // Mark the time that the task is going to sleep
+  unsigned int sleep_time;
+
   // Number of times the task was dispatched
   unsigned int num_calls;
 

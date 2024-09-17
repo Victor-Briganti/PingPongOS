@@ -14,6 +14,7 @@
 #include "lib/queue.h"
 #include "ppos_data.h"
 
+#include <assert.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,6 +24,7 @@
 
 // Task Global structures
 static TaskManager *readyQueue = NULL;
+static TaskManager *sleepQueue = NULL;
 static task_t *executingTask = NULL;
 static task_t *dispatcherTask = NULL;
 
@@ -56,7 +58,7 @@ static void __time_tick() {
   }
 
   executingTask->quantum -= 1;
-  if (executingTask->quantum <= 0) {
+  if (executingTask->quantum <= 0 || sleepQueue->count) {
     task_yield();
   }
 }
@@ -120,7 +122,7 @@ static void __aging(void *ptr) {
  * queue.
  */
 static task_t *scheduler() {
-  if (readyQueue->count) {
+  if (readyQueue->taskQueue) {
     task_t *task = readyQueue->taskQueue;
     task_manager_map(readyQueue, __aging);
 
@@ -140,7 +142,7 @@ static task_t *scheduler() {
 //=============================================================================
 
 /**
- * @brief Wake up all the tasks in the queue.
+ * @brief Wake up all the tasks awaiting in the queue.
  *
  * This function is responsible for getting all the tasks that are suspended and
  * put then into the ready queue.
@@ -148,7 +150,7 @@ static task_t *scheduler() {
  * @param waiting_queue Pointer for the queue with all the tasks to be awaken
  * @param exit_code exit code of the task that was waited
  */
-static void __wakeup(task_t **waiting_queue, int exit_code) {
+static void __wakeup_await(task_t **waiting_queue, int exit_code) {
   task_t *aux = *waiting_queue;
   while (aux) {
     task_awake(aux, waiting_queue);
@@ -165,9 +167,51 @@ static void __wakeup(task_t **waiting_queue, int exit_code) {
 }
 
 /**
- * @brief Wrapper for swapping context with the dispatcher
+ * @brief Wake up all the tasks that passed the sleeping time.
+ *
+ * This function is responsible for getting all the tasks that should not be
+ * sleeping anymore and put then into the ready queue.
+ *
+ * @param waiting_queue Pointer for the queue with all the tasks to be awaken
+ * @param exit_code exit code of the task that was waited
  */
-static void __context_swap_dispatcher() {
+static void __wakeup_sleep(task_t **waiting_queue) {
+  task_t *aux = *waiting_queue;
+  do {
+    if (aux && aux->sleep_time <= totalSysTime) {
+      if (task_manager_remove(sleepQueue, aux) < 0) {
+        log_error("failed to remove sleep task(%d) of sleep queue", aux->tid);
+        exit(1);
+      }
+
+      aux->state = TASK_READY;
+      aux->sleep_time = 0;
+      aux->current_priority = TASK_MIN_PRIO;
+      if (task_manager_insert(readyQueue, aux) < 0) {
+        log_error("failed to insert waiting task(%d) in ready queue", aux->tid);
+        exit(1);
+      }
+
+      aux = *waiting_queue;
+    } else {
+      break;
+    }
+  } while (aux);
+}
+
+/**
+ * @brief Wrapper for swapping context with the dispatcher
+ *
+ * @param state The new state for the executing task. This should not be a
+ * TASK_EXEC.
+ */
+static void __context_swap_dispatcher(task_state state) {
+  if (state == TASK_EXEC) {
+    log_error("invalid task state");
+    exit(1);
+  }
+
+  executingTask->state = state;
   dispatcherTask->num_calls++;
   swapcontext(&(executingTask->context), &(dispatcherTask->context));
 }
@@ -180,9 +224,11 @@ static void __context_swap_dispatcher() {
  */
 static void dispatcher() {
   do {
-    if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
-      log_error("could not be removed from ready queue");
-      exit(1);
+    if (task_manager_search(readyQueue, dispatcherTask) == 0) {
+      if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
+        log_error("could not be removed from ready queue");
+        exit(1);
+      }
     }
 
     task_t *currentTask = executingTask;
@@ -190,7 +236,8 @@ static void dispatcher() {
     executingTask = dispatcherTask;
 
     switch (currentTask->state) {
-    case TASK_SUSPENDED:
+    case TASK_EXEC:      // Only the dispatcher can be in here
+    case TASK_SUSPENDED: // Is already in another queue
       break;
     case TASK_READY:
       if (task_manager_insert(readyQueue, currentTask) < 0) {
@@ -200,7 +247,7 @@ static void dispatcher() {
       }
       break;
     case TASK_FINISH:
-      __wakeup(&currentTask->waiting_queue, currentTask->exit_result);
+      __wakeup_await(&currentTask->waiting_queue, currentTask->exit_result);
 
       log_info("task(%d) finish. execution time: %d ms, processor time: %d ms, "
                "%d activations",
@@ -212,18 +259,12 @@ static void dispatcher() {
         free(currentTask);
       }
       break;
-    case TASK_EXEC:
-      currentTask->state = TASK_READY;
-      if (task_manager_insert(readyQueue, currentTask) < 0) {
-        log_error("failed to insert executing task(%d) in ready queue",
-                  currentTask->tid);
-        exit(1);
-      }
-      break;
     default:
       log_error("invalid state(%d))", currentTask->state);
       exit(1);
     }
+
+    __wakeup_sleep(&(sleepQueue->taskQueue));
 
     task_t *next = scheduler();
     if (next == NULL) {
@@ -232,7 +273,7 @@ static void dispatcher() {
     }
 
     task_switch(next);
-  } while (readyQueue->count);
+  } while (readyQueue->taskQueue || sleepQueue->taskQueue);
 
   log_info("task(%d) finish. execution time: %d ms, processor time: %d ms, "
            "%d activations",
@@ -258,11 +299,59 @@ static void dispatcher() {
  * @return 0 if equal, 0< if elem has a higher priority, 0> if elem has a lower
  * priority.
  */
-static int __task_prio_comp(const void *ptr1, const void *ptr2) {
+static int __task_comp_prio(const void *ptr1, const void *ptr2) {
+  assert(ptr1 != NULL);
+  assert(ptr2 != NULL);
   task_t *elem = (task_t *)ptr1;
   task_t *queue = (task_t *)ptr2;
 
   return elem->initial_priority - queue->current_priority;
+}
+
+/**
+ * @brief Initializer for the ready queue.
+ */
+static void __ppos_init_ready_queue() {
+  readyQueue = task_manager_create("ready", __task_comp_prio);
+  if (readyQueue == NULL) {
+    log_error("couldn't initiate queue");
+    exit(1);
+  }
+}
+
+/**
+ * @brief Compare the sleep time of two tasks
+ *
+ * @param ptr1 Pointer for the element that is going to be compared
+ * @param ptr2 Pointer for the element in the queue
+ *
+ * @return 0 if equal, 0< if elem has a higher sleep time, 0> if elem has a
+ * lower sleep time.
+ */
+static int __task_comp_time(const void *ptr1, const void *ptr2) {
+  assert(ptr1 != NULL);
+  assert(ptr2 != NULL);
+  task_t *elem = (task_t *)ptr1;
+  task_t *queue = (task_t *)ptr2;
+
+  if (elem->sleep_time == queue->sleep_time) {
+    return 0;
+  } else if (elem->sleep_time > queue->sleep_time) {
+    return 1;
+  } else {
+    return -1;
+  }
+}
+
+/**
+ * @brief Initializer for the sleep queue.
+ */
+static void __ppos_init_sleep_queue() {
+  sleepQueue = task_manager_create("sleep", __task_comp_time);
+  if (sleepQueue == NULL) {
+    log_error("couldn't initiate queue");
+    exit(1);
+  }
 }
 
 /**
@@ -272,25 +361,27 @@ static int __task_prio_comp(const void *ptr1, const void *ptr2) {
  * (the one that called this function), as the main task, and initialized the
  * dispatcher task.
  */
-static void __ppos_init_tasks() {
-  readyQueue = task_manager_create("ready", __task_prio_comp);
-  if (readyQueue == NULL) {
-    log_error("couldn't initiate the ready queue");
-    exit(1);
-  }
-
-  log_debug("allocating main task");
+static void __ppos_init_main_task() {
   executingTask = malloc(sizeof(task_t));
   if (executingTask == NULL) {
-    log_error("failed to allocate main task");
+    log_error("failed to allocate");
     exit(1);
   }
 
   if (task_init(executingTask, NULL, NULL) < 0) {
-    log_error("main task could not be initialized");
+    log_error("could not be initialized");
     exit(1);
   }
+}
 
+/**
+ * @brief Initializes the task structures of the OS.
+ *
+ * Initialize the manager of the queues. Starts the current task
+ * (the one that called this function), as the main task, and initialized the
+ * dispatcher task.
+ */
+static void __ppos_init_disp_task() {
   dispatcherTask = malloc(sizeof(task_t));
   if (dispatcherTask == NULL) {
     log_error("failed to allocate dispatcher task");
@@ -313,9 +404,12 @@ void ppos_init() {
   // https://en.cppreference.com/w/c/io/setvbuf
   (void)setvbuf(stdout, 0, _IONBF, 0);
 
-  log_set(stderr, 0, LOG_TRACE);
+  log_set(stderr, 0, LOG_FATAL);
 
-  __ppos_init_tasks();
+  __ppos_init_ready_queue();
+  __ppos_init_sleep_queue();
+  __ppos_init_main_task();
+  __ppos_init_disp_task();
   __ppos_init_timer();
 }
 
@@ -347,6 +441,7 @@ int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
   task->quantum = TASK_QUANTUM;
   task->total_time = 0;
   task->current_time = 0;
+  task->sleep_time = 0;
   task->num_calls = 0;
   task->exit_result = 0;
   task->waiting_queue = NULL;
@@ -413,9 +508,8 @@ int task_switch(task_t *task) {
 
 void task_exit(int exit_code) {
   log_debug("task(%d)", executingTask->tid);
-  executingTask->state = TASK_FINISH;
   executingTask->exit_result = exit_code;
-  swapcontext(&(executingTask->context), &(dispatcherTask->context));
+  __context_swap_dispatcher(TASK_FINISH);
 }
 
 int task_id() {
@@ -425,8 +519,7 @@ int task_id() {
 
 void task_yield() {
   log_debug("task(%d)", executingTask->tid);
-  executingTask->state = TASK_READY;
-  __context_swap_dispatcher();
+  __context_swap_dispatcher(TASK_READY);
 }
 
 int task_getprio(const task_t *const task) {
@@ -486,16 +579,15 @@ int task_wait(task_t *task) {
 }
 
 void task_suspend(task_t **queue) {
-  executingTask->state = TASK_SUSPENDED;
-
   log_debug("suspending task(%d)", executingTask->tid);
+
   if (queue_append((queue_t **)queue, (queue_t *)executingTask) < 0) {
     log_error("could not add task(%d) to the suspend queue",
               executingTask->tid);
     exit(1);
   }
 
-  __context_swap_dispatcher();
+  __context_swap_dispatcher(TASK_SUSPENDED);
 }
 
 void task_awake(task_t *task, task_t **queue) {
@@ -515,4 +607,22 @@ void task_awake(task_t *task, task_t **queue) {
   }
 
   task->state = TASK_READY;
+}
+
+void task_sleep(int time) {
+  log_debug("sleeping task(%d)", executingTask->tid);
+  if (time < 0) {
+    log_debug("time passed is negative");
+    return;
+  }
+
+  executingTask->sleep_time = (unsigned int)time + totalSysTime;
+
+  if (task_manager_insert(sleepQueue, executingTask) < 0) {
+    log_error("could not add task(%d) to the suspend queue",
+              executingTask->tid);
+    exit(1);
+  }
+
+  __context_swap_dispatcher(TASK_SUSPENDED);
 }
