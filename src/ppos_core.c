@@ -8,10 +8,10 @@
  * License: BSD 2
  */
 
-#include "ppos.h"
 #include "adt/pptask_manager.h"
 #include "debug/log.h"
 #include "lib/queue.h"
+#include "ppos.h"
 #include "ppos_data.h"
 
 #include <assert.h>
@@ -27,6 +27,8 @@ static TaskManager *readyQueue = NULL;
 static TaskManager *sleepQueue = NULL;
 static task_t *executingTask = NULL;
 static task_t *dispatcherTask = NULL;
+static int numSuspedingTasks = 0;
+static int globalLock = 0;
 
 // Timer Global structur
 static unsigned int totalSysTime = 0;
@@ -53,7 +55,7 @@ static void __time_tick() {
   }
   executingTask->current_time = totalSysTime;
 
-  if (executingTask->type == SYSTEM) {
+  if (executingTask->type == SYSTEM || globalLock) {
     return;
   }
 
@@ -155,13 +157,6 @@ static void __wakeup_await(task_t **waiting_queue, int exit_code) {
   while (aux) {
     task_awake(aux, waiting_queue);
     aux->waiting_result = exit_code;
-
-    aux->state = TASK_READY;
-    if (task_manager_insert(readyQueue, aux) < 0) {
-      log_error("failed to insert waiting task(%d) in ready queue", aux->tid);
-      exit(1);
-    }
-
     aux = *waiting_queue;
   }
 }
@@ -186,12 +181,12 @@ static void __wakeup_sleep(task_t **waiting_queue) {
 
       aux->state = TASK_READY;
       aux->sleep_time = 0;
-      aux->current_priority = TASK_MIN_PRIO;
       if (task_manager_insert(readyQueue, aux) < 0) {
         log_error("failed to insert waiting task(%d) in ready queue", aux->tid);
         exit(1);
       }
 
+      numSuspedingTasks--;
       aux = *waiting_queue;
     } else {
       break;
@@ -224,16 +219,17 @@ static void __context_swap_dispatcher(task_state state) {
  */
 static void dispatcher() {
   do {
+
+    task_t *currentTask = executingTask;
+    dispatcherTask->state = TASK_EXEC;
+    executingTask = dispatcherTask;
+
     if (task_manager_search(readyQueue, dispatcherTask) == 0) {
       if (task_manager_remove(readyQueue, dispatcherTask) < 0) {
         log_error("could not be removed from ready queue");
         exit(1);
       }
     }
-
-    task_t *currentTask = executingTask;
-    dispatcherTask->state = TASK_EXEC;
-    executingTask = dispatcherTask;
 
     switch (currentTask->state) {
     case TASK_EXEC:      // Only the dispatcher can be in here
@@ -273,7 +269,7 @@ static void dispatcher() {
     }
 
     task_switch(next);
-  } while (readyQueue->taskQueue || sleepQueue->taskQueue);
+  } while (readyQueue->taskQueue || sleepQueue->taskQueue || numSuspedingTasks);
 
   log_info("task(%d) finish. execution time: %d ms, processor time: %d ms, "
            "%d activations",
@@ -420,16 +416,17 @@ unsigned int systime() { return totalSysTime; }
 //=============================================================================
 
 int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
+  globalLock = 1;
   static int threadCount = 0;
 
   if (task == NULL) {
     log_error("received a task == NULL");
-    return -1;
+    goto error;
   }
 
   if (threadCount != MAIN_TASK && start_routine == NULL) {
     log_error("received a start_routine == NULL");
-    return -1;
+    goto error;
   }
 
   task->next = NULL;
@@ -464,24 +461,29 @@ int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
       task->context.uc_link = 0;
     } else {
       log_error("stack could not be allocated");
-      return -1;
+      goto error;
     }
     makecontext(&(task->context), (void *)start_routine, 1, arg);
 
     if (task_manager_insert(readyQueue, task) < 0) {
       log_debug("task(%d) could not be appended in the ready queue", task->tid);
-      return -1;
+      goto error;
     }
   }
 
   threadCount++;
+  globalLock = 0;
   return 0;
+error:
+  globalLock = 0;
+  return -1;
 }
 
 int task_switch(task_t *task) {
+  globalLock = 1;
   if (task == NULL) {
     log_debug("received task == NULL");
-    return -1;
+    goto error;
   }
 
   log_debug("(%d)->(%d)", executingTask->tid, task->tid);
@@ -489,12 +491,12 @@ int task_switch(task_t *task) {
 
   if (task_manager_remove(readyQueue, task) < 0) {
     log_debug("could not remove task(%d) from ready queue", task->tid);
-    return -1;
+    goto error;
   }
 
   if (task_manager_insert(readyQueue, executingTask) < 0) {
     log_debug("could not insert task(%d) into ready queue", executingTask->tid);
-    return -1;
+    goto error;
   }
 
   task_t *temp = executingTask;
@@ -504,6 +506,9 @@ int task_switch(task_t *task) {
 
   swapcontext(&(temp->context), &(executingTask->context));
   return 0;
+error:
+  globalLock = 1;
+  return -1;
 }
 
 void task_exit(int exit_code) {
@@ -531,8 +536,9 @@ int task_getprio(const task_t *const task) {
 }
 
 int task_setprio(task_t *task, int prio) {
+  globalLock = 1;
   if (prio > TASK_MAX_PRIO || prio < TASK_MIN_PRIO) {
-    return -1;
+    goto error;
   }
 
   task_t *aux = NULL;
@@ -550,16 +556,19 @@ int task_setprio(task_t *task, int prio) {
   if (aux != executingTask) {
     if (task_manager_remove(readyQueue, aux) < 0) {
       log_debug("could not remove task(%d) from ready queue", aux->tid);
-      return -1;
+      goto error;
     }
 
     if (task_manager_insert(readyQueue, aux) < 0) {
       log_debug("could not insert task(%d) into ready queue", aux->tid);
-      return -1;
+      goto error;
     }
   }
 
   return 0;
+error:
+  globalLock = 0;
+  return -1;
 }
 
 int task_wait(task_t *task) {
@@ -579,6 +588,7 @@ int task_wait(task_t *task) {
 }
 
 void task_suspend(task_t **queue) {
+  globalLock = 1;
   log_debug("suspending task(%d)", executingTask->tid);
 
   if (queue_append((queue_t **)queue, (queue_t *)executingTask) < 0) {
@@ -587,10 +597,13 @@ void task_suspend(task_t **queue) {
     exit(1);
   }
 
+  numSuspedingTasks++;
+  globalLock = 1;
   __context_swap_dispatcher(TASK_SUSPENDED);
 }
 
 void task_awake(task_t *task, task_t **queue) {
+  globalLock = 1;
   if (task == NULL) {
     log_error("received a NULL task");
     exit(1);
@@ -607,9 +620,18 @@ void task_awake(task_t *task, task_t **queue) {
   }
 
   task->state = TASK_READY;
+  if (task_manager_insert(readyQueue, task) < 0) {
+    log_error("failed to insert waiting task(%d) in ready queue", task->tid);
+    exit(1);
+  }
+
+  numSuspedingTasks--;
+  globalLock = 0;
 }
 
 void task_sleep(int time) {
+  globalLock = 1;
+
   log_debug("sleeping task(%d)", executingTask->tid);
   if (time < 0) {
     log_debug("time passed is negative");
@@ -624,5 +646,7 @@ void task_sleep(int time) {
     exit(1);
   }
 
+  numSuspedingTasks++;
+  globalLock = 0;
   __context_swap_dispatcher(TASK_SUSPENDED);
 }

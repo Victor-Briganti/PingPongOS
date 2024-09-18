@@ -8,6 +8,9 @@
  * License: BSD 2
  */
 
+#ifndef PPOS_H
+#define PPOS_H
+
 #include "ppos_data.h"
 
 // Enables the POSIX compatibility on MacOS X
@@ -153,3 +156,5 @@ void task_awake(task_t *task, task_t **queue);
  * @param queue Pointer for the queue of suspended tasks.
  */
 void task_sleep(int time);
+
+#endif // PPOS_H
