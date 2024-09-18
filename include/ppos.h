@@ -157,4 +157,59 @@ void task_awake(task_t *task, task_t **queue);
  */
 void task_sleep(int time);
 
+//=============================================================================
+// Semaphore Management
+//=============================================================================
+
+/**
+ * @brief Initializes a new semaphore.
+ *
+ * Initializes the semaphore structure with a initial value and a empty queue.
+ *
+ * @param sem Pointer for the semaphore
+ * @param value The start value of the semaphore. If the value is negative, this
+ * semaphore starts locked.
+ *
+ * @return 0 if successfuly created, and -1 if something went wrong.
+ */
+int sem_init(semaphore_t *sem, int value);
+
+/**
+ * @brief Destroy the semaphore
+ *
+ * Destroy the semaphore passed by the pointer, and wake up all the tasks that
+ * were waiting for this semaphore.
+ *
+ * @param sem Pointer for the semaphore to be destroyed
+ *
+ * @return 0 if successfuly destroyed, and -1 otherwise.
+ */
+int sem_destroy(semaphore_t *sem);
+
+/**
+ * @brief Releases the semaphore
+ *
+ * Release the semaphore, adding 1 to the value stored inside the structure.
+ * This call is non blocking. If there is some task waiting in the queue, the
+ * first one in the queue is going to be placed in the ready queue.
+ *
+ * @param sem Pointer for the semaphore that is going to be released
+ *
+ * @return 0 if  the switch was successful, and 0< otherwise.
+ */
+int sem_up(semaphore_t *sem);
+
+/**
+ * @brief Locks this semaphore
+ *
+ * Try to lock the semaphore passed. This call can block, if the value inside
+ * the semaphore is negative, the current task is suspended, and inserted in the
+ * end of the queue of the semaphore.
+ *
+ * @param task Pointer for the semaphore that is going to be locked
+ *
+ * @return 0 if the lock happened, and -1 if something went wrong.
+ */
+int sem_down(semaphore_t *sem);
+
 #endif // PPOS_H

@@ -47,7 +47,7 @@ target_include_directories(QueueTest PUBLIC include)
 target_link_libraries(QueueTest PRIVATE QueueLib)
 
 # Define the ppos library
-add_library(PingPongLib STATIC src/ppos_core.c)
+add_library(PingPongLib STATIC src/ppos_core.c src/ppos_ipc.c)
 target_include_directories(PingPongLib PUBLIC include)
 # Link the queue library with the PingPongLib
 target_link_libraries(PingPongLib PUBLIC QueueLib LogLib TaskADT)
@@ -112,6 +112,12 @@ target_include_directories(SleepTest PUBLIC include)
 # Link the PingPongOs with the sleep test
 target_link_libraries(SleepTest PRIVATE PingPongLib)
 
+# Define the test executable for the semaphore
+add_executable(SemaphoreTest test/semaphore/ppsemaphore.c)
+target_include_directories(SemaphoreTest PUBLIC include)
+# Link the PingPongOs with the semaphore test
+target_link_libraries(SemaphoreTest PRIVATE PingPongLib)
+
 # Add the test
 add_test(NAME QueueTests COMMAND QueueTest)
 add_test(NAME TaskTests COMMAND TaskTest TaskMaxTest TaskMaxSeqTest)
@@ -120,3 +126,4 @@ add_test(NAME SchedulerTests COMMAND SchedulerTest)
 add_test(NAME TimerTests COMMAND TimerIntTest TimerTest TimerPrioTest)  
 add_test(NAME WaitTests COMMAND WaitTest)  
 add_test(NAME SleepTests COMMAND SleepTest)  
+add_test(NAME SemaphoreTests COMMAND SemaphoreTest)  

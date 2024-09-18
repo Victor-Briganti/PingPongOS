@@ -11,6 +11,10 @@
 #ifndef PP_DATA_H
 #define PP_DATA_H
 
+//=============================================================================
+// Task Structure
+//=============================================================================
+
 #include <ucontext.h>
 
 #define STACKSIZE (64 * 1024)
@@ -87,5 +91,27 @@ typedef struct task_t {
   int waiting_result;
 
 } task_t;
+
+//=============================================================================
+// Semaphore Structure
+//=============================================================================
+
+typedef enum semaphore_state {
+  CREATED,
+  INITALIZED,
+  FINISHED,
+} semaphore_state;
+
+// Structure for the Semaphore
+typedef struct semaphore_t {
+  // Mutual exclusion
+  int mutex;
+
+  // Flag to verify the state of the semaphore
+  semaphore_state state;
+
+  // Queue of waiting tasks
+  task_t *queue;
+} semaphore_t;
 
 #endif // PP_DATA_H
