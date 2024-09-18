@@ -118,6 +118,12 @@ target_include_directories(SemaphoreTest PUBLIC include)
 # Link the PingPongOs with the semaphore test
 target_link_libraries(SemaphoreTest PRIVATE PingPongLib)
 
+# Define the test executable for the semaphore race condition
+add_executable(SemaphoreRaceTest test/semaphore/ppsemaphore_race.c)
+target_include_directories(SemaphoreRaceTest PUBLIC include)
+# Link the PingPongOs with the semaphore race condition test
+target_link_libraries(SemaphoreRaceTest PRIVATE PingPongLib)
+
 # Add the test
 add_test(NAME QueueTests COMMAND QueueTest)
 add_test(NAME TaskTests COMMAND TaskTest TaskMaxTest TaskMaxSeqTest)
@@ -126,4 +132,4 @@ add_test(NAME SchedulerTests COMMAND SchedulerTest)
 add_test(NAME TimerTests COMMAND TimerIntTest TimerTest TimerPrioTest)  
 add_test(NAME WaitTests COMMAND WaitTest)  
 add_test(NAME SleepTests COMMAND SleepTest)  
-add_test(NAME SemaphoreTests COMMAND SemaphoreTest)  
+add_test(NAME SemaphoreTests COMMAND SemaphoreTest SemaphoreRaceTest)  

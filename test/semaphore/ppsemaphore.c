@@ -2,7 +2,7 @@
 // Prof. Carlos A. Maziero, DINF UFPR
 // Versão 1.5 -- Março de 2023
 
-// Teste do escalonador por prioridades dinâmicas
+// Teste do semaforo
 
 #include "ppos.h"
 #include <stdio.h>
