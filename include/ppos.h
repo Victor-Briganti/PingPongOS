@@ -158,6 +158,56 @@ void task_awake(task_t *task, task_t **queue);
 void task_sleep(int time);
 
 //=============================================================================
+// Mutex Management
+//=============================================================================
+
+/**
+ * @brief Initializes the mutex structure.
+ *
+ * Initializes the mutex in a unlocked state.
+ *
+ * @param mutex Pointer for the mutex that is going to be initialized
+ *
+ * @return 0 if successfuly initialized, and -1 if something went wrong.
+ */
+int mutex_init(mutex_t *mutex);
+
+/**
+ * @brief Destroy the mutex structure
+ *
+ * Destroy the mutex passed by the pointer.
+ *
+ * @param mutex Pointer for the mutex to be destroyed
+ *
+ * @return 0 if successfuly destroyed, and -1 otherwise.
+ */
+int mutex_destroy(mutex_t *mutex);
+
+/**
+ * @brief Lock this mutex
+ *
+ * Lock this mutex preventing another task from entering this location. Calls in
+ * the mutex are non blocking.
+ *
+ * @param mutex Pointer for the mutex that is going to be locked.
+ *
+ * @return 1 if the mutex was locked, and 0 otherwise, and -1 if something went
+ * wrong.
+ */
+int mutex_lock(mutex_t *mutex);
+
+/**
+ * @brief Unlock this mutex
+ *
+ * Unlock the mutex passed. Calls in the lock and unlock are non blocking.
+ *
+ * @param task Pointer for the mutex that is going to be unlocked
+ *
+ * @return 0 if the mutex could be unlocked, and 1 otherwise.
+ */
+int mutex_unlock(mutex_t *mutex);
+
+//=============================================================================
 // Semaphore Management
 //=============================================================================
 

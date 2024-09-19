@@ -12,6 +12,7 @@
 #include "debug/log.h"
 #include "lib/queue.h"
 #include "ppos.h"
+#include "ppos_bkl.h"
 #include "ppos_data.h"
 
 #include <assert.h>
@@ -28,7 +29,6 @@ static TaskManager *sleepQueue = NULL;
 static task_t *executingTask = NULL;
 static task_t *dispatcherTask = NULL;
 static int numSuspedingTasks = 0;
-static int globalLock = 0;
 
 // Timer Global structur
 static unsigned int totalSysTime = 0;
@@ -55,11 +55,13 @@ static void __time_tick() {
   }
   executingTask->current_time = totalSysTime;
 
-  if (executingTask->type == SYSTEM || globalLock) {
+  if (executingTask->type == SYSTEM || !bkl_lock()) {
     return;
   }
 
   executingTask->quantum -= 1;
+  bkl_unlock();
+
   if (executingTask->quantum <= 0 || sleepQueue->count) {
     task_yield();
   }
@@ -416,17 +418,16 @@ unsigned int systime() { return totalSysTime; }
 //=============================================================================
 
 int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
-  globalLock = 1;
   static int threadCount = 0;
 
   if (task == NULL) {
     log_error("received a task == NULL");
-    goto error;
+    return -1;
   }
 
   if (threadCount != MAIN_TASK && start_routine == NULL) {
     log_error("received a start_routine == NULL");
-    goto error;
+    return -1;
   }
 
   task->next = NULL;
@@ -461,29 +462,24 @@ int task_init(task_t *task, void (*start_routine)(void *), void *arg) {
       task->context.uc_link = 0;
     } else {
       log_error("stack could not be allocated");
-      goto error;
+      return -1;
     }
     makecontext(&(task->context), (void *)start_routine, 1, arg);
 
     if (task_manager_insert(readyQueue, task) < 0) {
       log_debug("task(%d) could not be appended in the ready queue", task->tid);
-      goto error;
+      return -1;
     }
   }
 
   threadCount++;
-  globalLock = 0;
   return 0;
-error:
-  globalLock = 0;
-  return -1;
 }
 
 int task_switch(task_t *task) {
-  globalLock = 1;
   if (task == NULL) {
     log_debug("received task == NULL");
-    goto error;
+    return -1;
   }
 
   log_debug("(%d)->(%d)", executingTask->tid, task->tid);
@@ -491,12 +487,12 @@ int task_switch(task_t *task) {
 
   if (task_manager_remove(readyQueue, task) < 0) {
     log_debug("could not remove task(%d) from ready queue", task->tid);
-    goto error;
+    return -1;
   }
 
   if (task_manager_insert(readyQueue, executingTask) < 0) {
     log_debug("could not insert task(%d) into ready queue", executingTask->tid);
-    goto error;
+    return -1;
   }
 
   task_t *temp = executingTask;
@@ -506,9 +502,6 @@ int task_switch(task_t *task) {
 
   swapcontext(&(temp->context), &(executingTask->context));
   return 0;
-error:
-  globalLock = 1;
-  return -1;
 }
 
 void task_exit(int exit_code) {
@@ -536,9 +529,8 @@ int task_getprio(const task_t *const task) {
 }
 
 int task_setprio(task_t *task, int prio) {
-  globalLock = 1;
   if (prio > TASK_MAX_PRIO || prio < TASK_MIN_PRIO) {
-    goto error;
+    return -1;
   }
 
   task_t *aux = NULL;
@@ -556,19 +548,16 @@ int task_setprio(task_t *task, int prio) {
   if (aux != executingTask) {
     if (task_manager_remove(readyQueue, aux) < 0) {
       log_debug("could not remove task(%d) from ready queue", aux->tid);
-      goto error;
+      return -1;
     }
 
     if (task_manager_insert(readyQueue, aux) < 0) {
       log_debug("could not insert task(%d) into ready queue", aux->tid);
-      goto error;
+      return -1;
     }
   }
 
   return 0;
-error:
-  globalLock = 0;
-  return -1;
 }
 
 int task_wait(task_t *task) {
@@ -588,7 +577,6 @@ int task_wait(task_t *task) {
 }
 
 void task_suspend(task_t **queue) {
-  globalLock = 1;
   log_debug("suspending task(%d)", executingTask->tid);
 
   if (queue_append((queue_t **)queue, (queue_t *)executingTask) < 0) {
@@ -598,12 +586,10 @@ void task_suspend(task_t **queue) {
   }
 
   numSuspedingTasks++;
-  globalLock = 1;
   __context_swap_dispatcher(TASK_SUSPENDED);
 }
 
 void task_awake(task_t *task, task_t **queue) {
-  globalLock = 1;
   if (task == NULL) {
     log_error("received a NULL task");
     exit(1);
@@ -626,12 +612,9 @@ void task_awake(task_t *task, task_t **queue) {
   }
 
   numSuspedingTasks--;
-  globalLock = 0;
 }
 
 void task_sleep(int time) {
-  globalLock = 1;
-
   log_debug("sleeping task(%d)", executingTask->tid);
   if (time < 0) {
     log_debug("time passed is negative");
@@ -647,6 +630,47 @@ void task_sleep(int time) {
   }
 
   numSuspedingTasks++;
-  globalLock = 0;
   __context_swap_dispatcher(TASK_SUSPENDED);
+}
+
+//=============================================================================
+// Mutex Public Management
+//=============================================================================
+
+int mutex_init(mutex_t *mutex) {
+  if (mutex == NULL) {
+    return -1;
+  }
+
+  mutex->lock = 0;
+  return 0;
+}
+
+int mutex_destroy(mutex_t *mutex) {
+  if (mutex == NULL || mutex->lock < 0) {
+    return -1;
+  }
+
+  mutex->lock = -1;
+  return -1;
+}
+
+int mutex_lock(mutex_t *mutex) {
+  if (mutex == NULL || mutex->lock < 0) {
+    return -1;
+  }
+
+  int lock = mutex->lock;
+  mutex->lock = 1;
+  return lock;
+}
+
+int mutex_unlock(mutex_t *mutex) {
+  if (mutex == NULL || mutex->lock < 0) {
+    return -1;
+  }
+
+  int lock = mutex->lock;
+  mutex->lock = 0;
+  return lock;
 }

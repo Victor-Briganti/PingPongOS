@@ -93,6 +93,16 @@ typedef struct task_t {
 } task_t;
 
 //=============================================================================
+// Mutex Structure
+//=============================================================================
+
+// Structure for the Mutex
+typedef struct mutex_t {
+  // Mutual exclusion
+  int lock;
+} mutex_t;
+
+//=============================================================================
 // Semaphore Structure
 //=============================================================================
 
@@ -105,7 +115,7 @@ typedef enum semaphore_state {
 // Structure for the Semaphore
 typedef struct semaphore_t {
   // Mutual exclusion
-  int mutex;
+  int lock;
 
   // Flag to verify the state of the semaphore
   semaphore_state state;
