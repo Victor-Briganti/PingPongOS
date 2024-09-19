@@ -124,6 +124,12 @@ target_include_directories(SemaphoreRaceTest PUBLIC include)
 # Link the PingPongOs with the semaphore race condition test
 target_link_libraries(SemaphoreRaceTest PRIVATE PingPongLib)
 
+# Define the test executable for the barriers
+add_executable(BarrierTest test/barrier/ppbarrier.c)
+target_include_directories(BarrierTest PUBLIC include)
+# Link the PingPongOs with the barriers  test
+target_link_libraries(BarrierTest PRIVATE PingPongLib)
+
 # Add the test
 add_test(NAME QueueTests COMMAND QueueTest)
 add_test(NAME TaskTests COMMAND TaskTest TaskMaxTest TaskMaxSeqTest)
@@ -133,3 +139,4 @@ add_test(NAME TimerTests COMMAND TimerIntTest TimerTest TimerPrioTest)
 add_test(NAME WaitTests COMMAND WaitTest)  
 add_test(NAME SleepTests COMMAND SleepTest)  
 add_test(NAME SemaphoreTests COMMAND SemaphoreTest SemaphoreRaceTest)  
+add_test(NAME BarrierTests COMMAND BarrierTest)  

@@ -107,9 +107,9 @@ typedef struct mutex_t {
 //=============================================================================
 
 typedef enum semaphore_state {
-  CREATED,
-  INITALIZED,
-  FINISHED,
+  SEM_CREATED,
+  SEM_INITALIZED,
+  SEM_FINISHED,
 } semaphore_state;
 
 // Structure for the Semaphore
@@ -123,5 +123,26 @@ typedef struct semaphore_t {
   // Queue of waiting tasks
   task_t *queue;
 } semaphore_t;
+
+//=============================================================================
+// Barrier Structure
+//=============================================================================
+
+typedef enum barrier_state {
+  BAR_INITALIZED,
+  BAR_FINISHED,
+} barrier_state;
+
+// Structure for the Semaphore
+typedef struct barrier_t {
+  // Number of tasks that needs to wait
+  int num_tasks;
+
+  // Flag to verify the state of the barrier
+  barrier_state state;
+
+  // Queue of waiting tasks
+  task_t *queue;
+} barrier_t;
 
 #endif // PP_DATA_H

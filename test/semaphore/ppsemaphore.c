@@ -40,8 +40,8 @@ int main(int argc, char *argv[]) {
   ppos_init();
 
   // cria semaforos
-  sem_init(&s1, 0);
-  sem_init(&s2, 1);
+  sem_init(&s1, 1);
+  sem_init(&s2, 0);
 
   // cria tarefas
   task_init(&a1, TaskA, "A1");

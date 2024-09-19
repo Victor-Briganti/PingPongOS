@@ -262,4 +262,44 @@ int sem_up(semaphore_t *sem);
  */
 int sem_down(semaphore_t *sem);
 
+//=============================================================================
+// Barrier Management
+//=============================================================================
+
+/**
+ * @brief Initializes a new barrier.
+ *
+ * Initializes the barrier structure with a initial value and a empty queue.
+ *
+ * @param barrier Pointer for the barrier
+ * @param num Number of tasks waiting this barrier to complete.
+ *
+ * @return 0 if successfuly created, and -1 if something went wrong.
+ */
+int barrier_init(barrier_t *barrier, int num);
+
+/**
+ * @brief Destroy a barrier
+ *
+ * Destroy the barrier passed by the pointer, and wake up all the tasks that are
+ * waiting for this barrier. This tasks return from with a error code.
+ *
+ * @param barrier Pointer for the barrier to be destroyed
+ *
+ * @return 0 if successfuly destroyed, and -1 otherwise.
+ */
+int barrier_destroy(barrier_t *barrier);
+
+/**
+ * @brief Indicates that the task reached this barrier
+ *
+ * Indicates that the task reached this barrier. This call is a blocking one, if
+ * the limit of the barrier was not reached.
+ *
+ * @param barrier Pointer for the barrier, that needs to be joined.
+ *
+ * @return 0 on success, and -1 otherwise.
+ */
+int barrier_join(barrier_t *barrier);
+
 #endif // PPOS_H
