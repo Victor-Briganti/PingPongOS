@@ -145,4 +145,40 @@ typedef struct barrier_t {
   task_t *queue;
 } barrier_t;
 
+//=============================================================================
+// Message Queue Structure
+//=============================================================================
+
+typedef enum mqueue_state {
+  MQE_INITALIZED,
+  MQE_FINISHED,
+} mqueue_state;
+
+// Structure for the Message Queue
+typedef struct mqueue_t {
+  // Array of messages
+  void *msgs;
+
+  // Current index of the array
+  int index;
+
+  // Max number of messagens
+  int max_msgs;
+
+  // Number of current messagens
+  int num_msgs;
+
+  // Flag to verify the state of the message queue
+  mqueue_state state;
+
+  // The size of the stored elements
+  size_t msg_size;
+
+  // Semaphore for producer
+  semaphore_t sem_prod;
+
+  // Semaphore for consumer
+  semaphore_t sem_cons;
+} mqueue_t;
+
 #endif // PP_DATA_H

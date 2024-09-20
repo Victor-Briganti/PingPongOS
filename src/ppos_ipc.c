@@ -14,6 +14,7 @@
 #include "ppos_data.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #define bkl_spinlock() while (bkl_lock())
 
@@ -138,5 +139,125 @@ int barrier_join(barrier_t *barrier) {
     task_suspend(&(barrier->queue));
   }
 
+  if (barrier->state == BAR_FINISHED) {
+    return -1;
+  }
+
   return 0;
+}
+
+//=============================================================================
+// Message Queue Functions
+//=============================================================================
+
+int mqueue_init(mqueue_t *queue, int max_msgs, int msg_size) {
+  if (queue == NULL || max_msgs < 0) {
+    return -1;
+  }
+
+  queue->state = MQE_INITALIZED;
+  queue->index = 0;
+  queue->num_msgs = 0;
+  queue->max_msgs = max_msgs;
+  queue->msg_size = (size_t)msg_size;
+
+  if (sem_init(&(queue->sem_prod), max_msgs) < 0) {
+    return -1;
+  }
+
+  if (sem_init(&(queue->sem_cons), 0) < 0) {
+    return -1;
+  }
+
+  queue->msgs = calloc((size_t)max_msgs, (size_t)msg_size);
+
+  return 0;
+}
+
+int mqueue_send(mqueue_t *queue, void *msg) {
+  if (queue == NULL || queue->state == MQE_FINISHED) {
+    goto error;
+  }
+
+  if (sem_down(&(queue->sem_prod)) < 0) {
+    goto error;
+  }
+
+  if (queue->state == MQE_FINISHED) {
+    goto error;
+  }
+
+  memcpy((char *)queue->msgs + ((size_t)queue->index * queue->msg_size), msg,
+         queue->msg_size);
+
+  queue->index = (queue->index + 1) % queue->max_msgs;
+
+  if (sem_up(&(queue->sem_cons)) < 0) {
+    goto error;
+  }
+
+  return 0;
+error:
+  return -1;
+}
+
+int mqueue_recv(mqueue_t *queue, void *msg) {
+  if (queue == NULL || queue->state == MQE_FINISHED) {
+    goto error;
+  }
+
+  if (sem_down(&(queue->sem_cons)) < 0) {
+    goto error;
+  }
+
+  if (queue->state == MQE_FINISHED) {
+    goto error;
+  }
+
+  queue->index--;
+  if (queue->index < 0) {
+    queue->index = queue->max_msgs - 1;
+  }
+
+  memcpy(msg, (char *)queue->msgs + ((size_t)queue->index * queue->msg_size),
+         queue->msg_size);
+
+  if (sem_up(&(queue->sem_prod)) < 0) {
+    goto error;
+  }
+
+  if (queue->state == MQE_FINISHED) {
+    goto error;
+  }
+
+  return 0;
+error:
+  return -1;
+}
+
+int mqueue_destroy(mqueue_t *queue) {
+  if (queue == NULL || queue->state == MQE_FINISHED) {
+    return -1;
+  }
+
+  queue->state = MQE_FINISHED;
+  free(queue->msgs);
+
+  if (sem_destroy(&(queue->sem_prod)) < 0) {
+    return -1;
+  }
+
+  if (sem_destroy(&(queue->sem_cons)) < 0) {
+    return -1;
+  }
+
+  return 0;
+}
+
+int mqueue_msgs(mqueue_t *queue) {
+  if (queue == NULL || queue->state == MQE_FINISHED) {
+    return -1;
+  }
+
+  return queue->num_msgs;
 }

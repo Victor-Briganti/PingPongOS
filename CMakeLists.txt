@@ -130,6 +130,12 @@ target_include_directories(BarrierTest PUBLIC include)
 # Link the PingPongOs with the barriers  test
 target_link_libraries(BarrierTest PRIVATE PingPongLib)
 
+# Define the test executable for the message queue
+add_executable(MessageQueueTest test/mqueue/ppmqueue.c)
+target_include_directories(MessageQueueTest PUBLIC include)
+# Link the PingPongOs with the message queue test
+target_link_libraries(MessageQueueTest PRIVATE PingPongLib m)
+
 # Add the test
 add_test(NAME QueueTests COMMAND QueueTest)
 add_test(NAME TaskTests COMMAND TaskTest TaskMaxTest TaskMaxSeqTest)
@@ -140,3 +146,4 @@ add_test(NAME WaitTests COMMAND WaitTest)
 add_test(NAME SleepTests COMMAND SleepTest)  
 add_test(NAME SemaphoreTests COMMAND SemaphoreTest SemaphoreRaceTest)  
 add_test(NAME BarrierTests COMMAND BarrierTest)  
+add_test(NAME MessageQueueTests COMMAND MessageQueueTest)  

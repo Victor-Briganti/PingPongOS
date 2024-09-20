@@ -302,4 +302,68 @@ int barrier_destroy(barrier_t *barrier);
  */
 int barrier_join(barrier_t *barrier);
 
+//=============================================================================
+// Message Queue Management
+//=============================================================================
+
+/**
+ * @brief Initializes the message queue
+ *
+ * @param queue Pointer for the message queue that needs to be initialized
+ * @param max_msgs Max number of messages in the queue.
+ * @param msg_size The size of the messages
+ *
+ * @return 0 on success, and -1 otherwise.
+ */
+int mqueue_init(mqueue_t *queue, int max_msgs, int msg_size);
+
+/**
+ * @brief Sends a message through the queue
+ *
+ * Sends the message to the end of the queue. This function block the caller, if
+ * the queue is full, the current task is suspended until the send of the
+ * message can be made.
+ *
+ * @param queue Pointer for the queue, that is going to receive the message.
+ * @param msg Value that is going to be copied to the queue
+ *
+ * @return 0 on success, and -1 otherwise.
+ */
+int mqueue_send(mqueue_t *queue, void *msg);
+
+/**
+ * @brief Receives a message that is in the queue
+ *
+ * Receives the message that is in the beginning of the queue and place this in
+ * the msg pointer. This function block the caller, if the queue is empty, the
+ * current task is suspended until there is some message in the queue.
+ *
+ * @param queue Pointer for the queue, that is sending the message.
+ * @param msg Pointer to were the message is going to be writted.
+ *
+ * @return 0 on success, and -1 otherwise.
+ */
+int mqueue_recv(mqueue_t *queue, void *msg);
+
+/**
+ * @brief Destroy the queue
+ *
+ * Destroy the queue, freeing all the tasks that are waiting in this queue. All
+ * tasks that waiting for a responde recive a -1 as a result.
+ *
+ * @param queue Pointer for the queue that is going to be destroyed.
+ *
+ * @return 0 on success, and -1 otherwise.
+ */
+int mqueue_destroy(mqueue_t *queue);
+
+/**
+ * @brief Indicates the number of messages in the queue
+ *
+ * @param queue Pointer for the message queue
+ *
+ * @return 0>= in case of sucess, and a negative value otherwise
+ */
+int mqueue_msgs(mqueue_t *queue);
+
 #endif // PPOS_H
